@@ -53,13 +53,13 @@ variable "instance_shape" {
 variable "instance_ocpus" {
   description = "OCPUs to allocate (only used for Flex shapes, e.g. A1.Flex). Always Free allows up to 4 total."
   type        = number
-  default     = 1
+  default     = 4
 }
 
 variable "instance_memory_in_gbs" {
   description = "Memory in GB to allocate (only used for Flex shapes). Always Free allows up to 24 GB total."
   type        = number
-  default     = 6
+  default     = 24
 }
 
 variable "boot_volume_size_in_gbs" {
