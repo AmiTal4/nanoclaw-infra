@@ -2,7 +2,7 @@ resource "oci_core_vcn" "vcn" {
   compartment_id = var.compartment_ocid
   cidr_block     = var.vcn_cidr
   display_name   = "personal assistant vcn"
-  dns_label      = "personalassistantvcn"
+  dns_label      = "pavcn"
 }
 
 resource "oci_core_internet_gateway" "igw" {
