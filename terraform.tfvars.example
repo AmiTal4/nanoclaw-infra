@@ -1,0 +1,16 @@
+# Copy this file to terraform.tfvars and fill in your own values.
+# Never commit terraform.tfvars (it's already in .gitignore).
+
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+region           = "eu-frankfurt-1"
+
+
+# Root compartment = tenancy_ocid, or use a dedicated compartment's OCID
+compartment_ocid = "ocid1.tenancy.oc1..aaaaaaaaXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# Restrict this to your own IP for better security, e.g. "203.0.113.10/32"
+ssh_allowed_cidr = "0.0.0.0/0"
+
+instance_shape = "VM.Standard.E2.1.Micro"

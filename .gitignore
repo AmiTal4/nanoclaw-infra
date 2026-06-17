@@ -1,0 +1,20 @@
+# Terraform
+.terraform/
+.terraform.tfstate.lock.info
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Variable files containing secrets
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# CLI config
+.terraformrc
+terraform.rc
