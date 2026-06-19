@@ -7,7 +7,7 @@
  * Usage (from nanoclaw project root):
  *   node --import tsx/esm /home/ubuntu/scripts/whatsapp-diagnostics/check-timelock.ts [recipient-jid]
  *
- * Default recipient: 972523968011@s.whatsapp.net
+ * Default recipient: <your-number>@s.whatsapp.net  (pass as first argument)
  */
 import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import pino from 'pino';
