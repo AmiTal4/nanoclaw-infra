@@ -22,11 +22,64 @@ The timelock is a red herring in isolation — it's a *consequence* of sending w
 
 ## Fix
 
+Two changes are needed:
+
+### 1. Upgrade Baileys to rc13+
+
 Upgrade `@whiskeysockets/baileys` from `7.0.0-rc.9` to `7.0.0-rc13` (or rc10+). These versions include:
 
 - **PR #2339** (merged April 24, 2026): Full tctoken lifecycle — issuance, expiration, re-issuance, pruning, and attachment to outgoing 1:1 messages.
 - **PR #2438** (merged May 29, 2026): cstoken (NCT) fallback — self-computed token when no tctoken exists.
 - Built-in 463 error handlers and reachout timelock detection (`fetchAccountReachoutTimelock()`).
+
+### 2. Pre-issue tctokens before first send (adapter-level fix)
+
+Even with rc13, Baileys issues tctokens **after** sending (fire-and-forget). For a brand-new contact, the first message always goes out without a token. If the account has a reachout timelock, that tokenless first message is rejected with 463.
+
+The fix is to add tctoken pre-issuance in the WhatsApp adapter's `sendRawMessage` function. Before calling `sock.sendMessage`, check if a tctoken exists for the contact; if not, call `issuePrivacyTokens` and wait for the result. This ensures the first message already carries a valid token.
+
+**Implementation** (in `src/channels/whatsapp.ts`):
+
+```typescript
+import { jidNormalizedUser } from '@whiskeysockets/baileys';
+import { storeTcTokensFromIqResult } from '@whiskeysockets/baileys/lib/Utils/tc-token-utils.js';
+
+// Store authKeys in the outer scope (set in connectSocket)
+let authKeys: any;
+
+// In connectSocket(), before makeWASocket:
+authKeys = makeCacheableSignalKeyStore(state.keys, baileysLogger);
+
+// New function — call before sock.sendMessage for 1:1 chats:
+async function ensureTcToken(jid: string): Promise<void> {
+  if (!connected || !authKeys) return;
+  if (!jid.endsWith('@s.whatsapp.net')) return;
+
+  const normalized = jidNormalizedUser(jid);
+  const existing = await authKeys.get('tctoken', [normalized]);
+  if (existing[normalized]?.token?.length) return;
+
+  try {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const result = await (sock as any).issuePrivacyTokens([normalized], timestamp);
+    await storeTcTokensFromIqResult({
+      result,
+      fallbackJid: normalized,
+      keys: authKeys,
+      getLIDForPN: async () => null,
+    });
+    log.info('Pre-issued tctoken for new contact', { jid: normalized });
+  } catch (err) {
+    log.warn('Failed to pre-issue tctoken', { jid: normalized, err });
+  }
+}
+```
+
+Call `ensureTcToken(jid)` at the top of `sendRawMessage` (for text) and before file-send loops in `deliver` (for media).
+
+**Why Baileys doesn't do this by default**: Baileys mirrors WhatsApp Web's behavior, where the primary phone has already exchanged tokens with contacts. Linked devices (which is what Baileys runs as) inherit those tokens. But when a linked device is the *only* device initiating contact (as with NanoClaw bots), there's no primary-phone send to bootstrap the token exchange.
+
+**Note**: If the account currently has an active reachout timelock, the `issuePrivacyTokens` call returns an empty result (the server refuses to issue tokens while timelocked). The pre-issuance is a no-op until the lock expires, but it prevents future timelocks from accumulating once the current one clears.
 
 ### ESM compatibility issue with rc10+
 
@@ -82,30 +135,60 @@ pnpm patch-commit '<path-printed-above>'
 
 ## Diagnostic Scripts
 
+Must stop the NanoClaw service first (only one Baileys connection per auth session):
+
+```bash
+systemctl --user stop nanoclaw-v2-*   # or your service unit name
+cd /home/ubuntu/nanoclaw-v2
+```
+
 ### check-timelock.ts
 
 Connects to WhatsApp using stored auth, checks the reachout timelock status, and attempts a test send. **Requires rc13** for `fetchAccountReachoutTimelock()`.
 
-Must stop the NanoClaw service first (only one Baileys connection per auth session):
-
 ```bash
-systemctl --user stop nanoclaw-v2-2a38bd3e
-cd /home/ubuntu/nanoclaw-v2
-node --import tsx/esm /home/ubuntu/scripts/whatsapp-diagnostics/check-timelock.ts
-systemctl --user start nanoclaw-v2-2a38bd3e
+pnpm exec tsx /path/to/check-timelock.ts <recipient-jid>
+# e.g. pnpm exec tsx scripts/whatsapp-diagnostics/check-timelock.ts 972501234567@s.whatsapp.net
 ```
 
 Output examples:
 
 ```
 # Active timelock:
-Timelock result: { "isActive": true, "timeEnforcementEnds": "2026-06-26T00:05:57.000Z", "enforcementType": "RESTRICT_ALL_COMPANIONS" }
+ACTIVE — enforcement: RESTRICT_ALL_COMPANIONS
+Expires: 2026-06-26T00:05:57.000Z
 
 # No timelock:
-Timelock result: { "isActive": false }
+No active timelock.
 
 # Successful send:
-Send succeeded! status: 1
+SUCCESS — status: 1, msgId: 3EB0...
+```
+
+### check-tctoken.ts
+
+Tests the tctoken pre-issuance flow: verifies the recipient is on WhatsApp, pre-issues a tctoken, then sends a test message with the token attached. Use this to confirm that first-time DMs to new contacts work after the adapter fix.
+
+```bash
+pnpm exec tsx /path/to/check-tctoken.ts <recipient-jid>
+```
+
+Output examples:
+
+```
+# Successful pre-issuance + send:
+Existing tctoken: none
+Pre-issuing tctoken...
+Token issued and stored: YES (length: 48)
+Sending test message...
+SUCCESS — msgId: 3EB0..., status: 1
+
+# Account timelocked (token issuance blocked):
+Existing tctoken: none
+Pre-issuing tctoken...
+Token issued and stored: NO (server returned empty — account likely timelocked)
+Sending test message...
+error 463: account restricted or missing tctoken for contact
 ```
 
 ## References
