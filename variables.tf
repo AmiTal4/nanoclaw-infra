@@ -47,7 +47,7 @@ variable "availability_domain_number" {
 variable "instance_shape" {
   description = "Always Free eligible shape: VM.Standard.E2.1.Micro (AMD, fixed) or VM.Standard.A1.Flex (Ampere ARM, flexible)"
   type        = string
-  default     = "VM.Standard.E2.1.Micro"
+  default     = "VM.Standard.A1.Flex"
 }
 
 variable "instance_ocpus" {
