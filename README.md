@@ -12,9 +12,9 @@ Ubuntu compute instance on Oracle Cloud Infrastructure (OCI) with:
 
 1. An OCI account with Always Free resources available in your home region.
 2. [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5.
-3. An OCI API signing key pair, with the public key uploaded to your OCI user
-   (Identity & Security -> Users -> your user -> API Keys -> Add API Key).
-   This gives you the `tenancy_ocid`, `user_ocid`, `fingerprint`, and `private_key_path` values.
+3. OCI authentication — either:
+   - **OCI CLI** (easiest): install the [OCI CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm) and run `oci setup config`. It generates the API signing key for you, uploads it, and writes `~/.oci/config` — the Terraform OCI provider picks this up automatically with no extra variables needed.
+   - **Manual API key**: create a key pair yourself, upload the public key under Identity & Security → Users → your user → API Keys, and supply `tenancy_ocid`, `user_ocid`, `fingerprint`, and `private_key_path` in `terraform.tfvars`.
 4. A local SSH key pair (e.g. `ssh-keygen -t ed25519`) - the public key is
    injected into the instance for the `ubuntu` user.
 
@@ -79,6 +79,14 @@ Once the instance is up, connect to it and install [NanoClaw](https://github.com
 The security list only opens TCP/22 (SSH) for `ssh_allowed_cidr`. No other
 ports are reachable from the internet. Outbound traffic is unrestricted so
 the instance can reach the internet for package updates, etc.
+
+## Known Issues
+
+### WhatsApp DM sending silently fails (Baileys reachout timelock)
+
+When running NanoClaw with an outdated Baileys version, outgoing WhatsApp DMs can appear delivered in the logs but never reach the recipient. The root cause is that Baileys rc.9 omits required privacy tokens (`tctoken`/`cstoken`) from outgoing messages, which causes WhatsApp to impose a server-side reachout timelock (`RESTRICT_ALL_COMPANIONS`) that silently drops all outgoing DMs from linked devices.
+
+**Fix**: upgrade `@whiskeysockets/baileys` to rc13+. See [`scripts/whatsapp-diagnostics/README.md`](scripts/whatsapp-diagnostics/README.md) for a full breakdown of the root cause, the fix, and diagnostic scripts for checking timelock status.
 
 ## Cleanup
 
