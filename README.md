@@ -45,6 +45,28 @@ Ubuntu compute instance on Oracle Cloud Infrastructure (OCI) with:
    terraform output ssh_command
    ```
 
+## After provisioning — install NanoClaw
+
+Once the instance is up, connect to it and install [NanoClaw](https://github.com/nanocoai/nanoclaw):
+
+1. **SSH into the instance** using the key you provided:
+
+   ```
+   terraform output ssh_command
+   ```
+
+   Copy and run the printed command (or use your own SSH client with the same key).
+
+2. **Install Git:**
+
+   ```bash
+   sudo apt-get update && sudo apt-get install -y git
+   ```
+
+3. **Install NanoClaw** by following the quickstart in the [NanoClaw repo](https://github.com/nanocoai/nanoclaw).
+
+---
+
 ## Always Free shape notes
 
 - `VM.Standard.E2.1.Micro` (default): AMD, 1 OCPU / 1 GB RAM, fixed shape. Up to 2 instances are Always Free.
