@@ -1,4 +1,4 @@
-# PA — OCI Always Free Ubuntu Instance (Terraform)
+# OCI Always Free Ubuntu Instance (Terraform)
 
 Terraform configuration that provisions a single Always Free-eligible
 Ubuntu compute instance on Oracle Cloud Infrastructure (OCI) with:
