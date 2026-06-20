@@ -191,6 +191,18 @@ Sending test message...
 error 463: account restricted or missing tctoken for contact
 ```
 
+## Key Insights
+
+1. **tctokens are per-device-pair, not per-account.** Each linked device (Baileys runs as a linked device) has its own signal identity and needs its own tctokens. Sending from the primary phone does NOT create a usable token for Baileys — each device must exchange tokens independently.
+
+2. **Baileys issues tokens after sending, not before.** The first message to a new contact always goes out without a tctoken. Baileys issues the token fire-and-forget *after* `sendMessage` resolves. This mirrors WhatsApp Web's assumption that the primary phone has already bootstrapped the token exchange. For bots where Baileys IS the initiator, this assumption breaks.
+
+3. **The reachout timelock is a cascading trap.** Each tokenless send that gets rejected extends the timelock and the server also refuses to issue new tokens during the lock — a closed loop. The only escape is waiting for the lock to expire (duration depends on how many failed sends accumulated).
+
+4. **The fix is pre-issuance.** Call `sock.issuePrivacyTokens()` before `sock.sendMessage()` for 1:1 chats where no tctoken exists. This ensures even the first message carries a valid token. Combined with the Baileys rc13 upgrade (which added the token lifecycle), this prevents timelocks from accumulating.
+
+5. **Existing contacts are unaffected.** Contacts who have previously messaged the Baileys device already have tctokens stored in the auth state (`store/auth/tctoken-<LID>.json`). The issue only manifests when Baileys initiates contact with someone who has never messaged it.
+
 ## References
 
 - [Baileys #2441 — 463 error investigation](https://github.com/WhiskeySockets/Baileys/issues/2441)
