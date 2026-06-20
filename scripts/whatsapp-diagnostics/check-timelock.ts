@@ -13,7 +13,8 @@ import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '
 import pino from 'pino';
 
 const logger = pino({ level: 'silent' });
-const recipientJid = process.argv[2] || '972523968011@s.whatsapp.net';
+const recipientJid = process.argv[2];
+if (!recipientJid) { console.error('Usage: check-timelock.ts <recipient-jid>  e.g. 972501234567@s.whatsapp.net'); process.exit(1); }
 
 async function main() {
   const { state, saveCreds } = await useMultiFileAuthState('store/auth');
