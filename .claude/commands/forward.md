@@ -24,6 +24,16 @@ command -v sshm
 ```
 If not found, tell the user to run `/setup-sshm` first and stop.
 
+Check OCI auth is valid:
+```
+oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
+```
+If this fails with a 401/auth error, tell the user to run:
+```
+! oci session authenticate --region il-jerusalem-1 --profile-name pa
+```
+Then retry.
+
 ## 3. Detect the OS
 
 ```
@@ -33,9 +43,11 @@ uname -s
 - Darwin → macOS
 - Otherwise → Linux
 
-## 4. Check for an existing SOCKS5 proxy
+## 4. Check for an existing SOCKS5 proxy (fast path)
 
-An active `sshm pa` / `ssh pa` session exposes a SOCKS5 proxy on `localhost:1080`. If it is already running, the port forward can reuse it — instant, no new Bastion session needed.
+The `pa` SSH host config includes `DynamicForward 1080`, so any active `sshm pa` or `ssh pa` session already exposes a SOCKS5 proxy on `localhost:1080` that can reach **all** remote ports — no new tunnel needed.
+
+Check if `localhost:1080` is listening:
 
 **Windows (PowerShell):**
 ```powershell
@@ -47,52 +59,30 @@ An active `sshm pa` / `ssh pa` session exposes a SOCKS5 proxy on `localhost:1080
 nc -z -w1 localhost 1080 2>/dev/null && echo "open" || echo "closed"
 ```
 
-Record whether the proxy is **open** or **closed** — used in step 5.
+If the port is **open** → tell the user:
+
+> A SOCKS5 proxy is already running on `localhost:1080` from an existing `sshm pa` session. You can reach instance port `<remote_port>` through it without opening a new tunnel:
+>
+> ```
+> # curl
+> curl --proxy socks5://localhost:1080 http://localhost:<remote_port>/
+>
+> # any command that respects ALL_PROXY
+> ALL_PROXY=socks5://localhost:1080 <command>
+> ```
+>
+> If you still want a dedicated `-L` forward on `localhost:<local_port>`, it will be instant (reuses the existing Bastion session). Run `/forward <local_port>:<remote_port>` again and type `force` to proceed.
+
+Stop here unless the user confirms they want to proceed with the dedicated forward anyway.
 
 ## 5. Open a new terminal window with the port-forward SSH command
-
-`-N` means no remote command — just hold the tunnel open.
-
-### If SOCKS5 is open — use `pa-cmd` (instant, reuses existing Bastion session)
-
-The command to run in the new terminal is:
-```
-ssh -L <local_port>:localhost:<remote_port> -N pa-cmd
-```
-
-**Windows:**
-```powershell
-Start-Process powershell -ArgumentList '-NoExit', '-Command', 'ssh -L <local_port>:localhost:<remote_port> -N pa-cmd'
-```
-
-**macOS:**
-```bash
-osascript -e 'tell application "Terminal" to do script "ssh -L <local_port>:localhost:<remote_port> -N pa-cmd"'
-```
-
-**Linux:**
-```bash
-x-terminal-emulator -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N pa-cmd; exec bash'" 2>/dev/null \
-  || gnome-terminal -- bash -c "ssh -L <local_port>:localhost:<remote_port> -N pa-cmd; exec bash" 2>/dev/null \
-  || xterm -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N pa-cmd; exec bash'" &
-```
-
-### If SOCKS5 is closed — use `pa` (creates a new Bastion session, ~30s)
-
-First verify OCI auth is valid:
-```
-oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
-```
-If this fails with a 401/auth error, tell the user to run:
-```
-! oci session authenticate --region il-jerusalem-1 --profile-name pa
-```
-Then retry.
 
 The command to run in the new terminal is:
 ```
 ssh -L <local_port>:localhost:<remote_port> -N pa
 ```
+
+`-N` means no remote command — just hold the tunnel open. The `pa` host alias handles bastion session creation via proxy-command.sh automatically.
 
 **Windows:**
 ```powershell
@@ -114,8 +104,7 @@ x-terminal-emulator -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N 
 ## 6. Confirm and tell the user
 
 After launching, tell the user:
-- If using `pa-cmd`: the tunnel is instant (reused existing Bastion session)
-- If using `pa`: the new terminal is opening the tunnel — takes ~30s (OCI Bastion provisioning)
+- A new terminal window is opening the tunnel — takes ~30s (OCI Bastion provisioning)
 - Once connected: `localhost:<local_port>` → instance port `<remote_port>`
 - The terminal window holds the tunnel open — close it to stop forwarding
 - To run multiple port forwards simultaneously, run `/forward` again with a different port
