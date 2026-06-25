@@ -27,3 +27,13 @@ output "ssh_public_key_path" {
   description = "Path to the SSH public key configured in terraform.tfvars"
   value       = var.ssh_public_key_path
 }
+
+output "vault_secret_ocid" {
+  description = "OCID of the bws-browser-token secret in OCI Vault"
+  value       = oci_vault_secret.bws_browser_token.id
+}
+
+output "compartment_ocid" {
+  description = "Compartment OCID"
+  value       = var.compartment_ocid
+}
