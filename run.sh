@@ -23,4 +23,4 @@ fi
 
 echo "Launching Claude Code — type /install to get started."
 echo ""
-claude
+exec claude
