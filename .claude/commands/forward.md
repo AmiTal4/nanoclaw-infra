@@ -27,7 +27,7 @@ Steps:
 
 **If the argument starts with `stop`:**
 - Extract the port (or "all").
-- **Windows (PowerShell):** read the PID file, run `Stop-Process -Id <pid> -Force`, delete the file.
+- **Windows (PowerShell):** `$fwdPid = (Get-Content "$env:USERPROFILE\.ssh\forward-<port>.pid").Trim(); Stop-Process -Id $fwdPid -Force; Remove-Item "$env:USERPROFILE\.ssh\forward-<port>.pid"` (use `$fwdPid`, not `$pid` — `$pid` is a reserved PowerShell variable)
 - **macOS/Linux (Bash):** `kill $(cat ~/.ssh/forward-<port>.pid) && rm ~/.ssh/forward-<port>.pid`
 - If "all", repeat for every `forward-*.pid` file.
 - Tell the user which forward(s) were stopped and exit.
