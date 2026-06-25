@@ -26,7 +26,29 @@ If this fails with a 401/auth error, tell the user to run:
 ```
 Then retry.
 
-## 2. Detect the operating system
+## 2. Check for an existing connection
+
+Check if the SOCKS5 proxy is already live on `localhost:1080` (present when any `sshm pa` / `ssh pa` session is active):
+
+**Windows (PowerShell):**
+```powershell
+(Test-NetConnection -ComputerName localhost -Port 1080 -WarningAction SilentlyContinue).TcpTestSucceeded
+```
+
+**macOS / Linux (Bash):**
+```bash
+nc -z -w1 localhost 1080 2>/dev/null && echo "open" || echo "closed"
+```
+
+If **open** → tell the user:
+
+> Already connected — SOCKS5 proxy is live on `localhost:1080`.
+> - `ALL_PROXY=socks5://localhost:1080 <command>` to reach the instance
+> - To open a second interactive shell session anyway, reply `again`.
+
+Stop here unless the user explicitly asks to open another session.
+
+## 3. Detect the operating system
 
 ```
 uname -s
@@ -35,7 +57,7 @@ uname -s
 - Darwin → macOS
 - Otherwise → Linux
 
-## 3. Open a new terminal window running `sshm pa`
+## 4. Open a new terminal window running `sshm pa`
 
 **Windows** — use PowerShell to launch a new window:
 ```powershell
@@ -54,7 +76,7 @@ x-terminal-emulator -e "bash -c 'sshm pa; exec bash'" 2>/dev/null \
   || xterm -e "bash -c 'sshm pa; exec bash'" &
 ```
 
-## 4. Confirm and tell the user
+## 5. Confirm and tell the user
 
 After launching, tell the user:
 - A new terminal window is opening with `sshm pa` — it takes ~30s to connect (OCI Bastion session provisioning)
