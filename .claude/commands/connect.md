@@ -1,8 +1,8 @@
-Connect to the PA instance via OCI Bastion. Creates a managed-SSH session, then prints the final SSH command for the user to run.
+Connect to the PA instance by opening a new terminal window running `sshm pa`.
 
 Steps:
 
-## 1. Pre-flight check
+## 1. Pre-flight checks
 
 Verify Terraform state exists:
 ```
@@ -10,87 +10,54 @@ test -f infra/terraform.tfstate && echo "ok" || echo "missing"
 ```
 If missing, tell the user to run `/deploy` first and stop.
 
-## 2. Read Terraform outputs
-
-Run from the repo root using `-chdir=infra`:
+Check sshm is installed:
 ```
-terraform -chdir=infra output -raw bastion_id
-terraform -chdir=infra output -raw instance_id
-terraform -chdir=infra output -raw instance_private_ip
-terraform -chdir=infra output -raw region
-terraform -chdir=infra output -raw ssh_private_key_path
+command -v sshm
 ```
-If any command fails, stop and tell the user to run `/deploy` first.
+If not found, tell the user to install it (see `/setup-sshm` step 0 for platform-specific install commands) and stop.
 
-Expand `~` in `ssh_private_key_path` to the actual home directory before using it.
-
-## 3. Create a managed-SSH session
-
+Check OCI auth is valid:
 ```
-oci bastion session create-managed-ssh \
-  --bastion-id "<bastion_id>" \
-  --ssh-public-key-file "$HOME/.ssh/id_rsa.pub" \
-  --target-resource-id "<instance_id>" \
-  --target-os-username ubuntu \
-  --session-ttl 10800 \
-  --display-name "claude-connect-$(date +%s)" \
-  --region "<region>" \
-  --profile pa \
-  --auth security_token \
-  --query 'data.id' \
-  --raw-output
+oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
 ```
-
-## 4. Poll until ACTIVE — max 30 attempts, sleep 5s between each
-
-```
-oci bastion session get \
-  --session-id "<session_id>" \
-  --region "<region>" \
-  --profile pa \
-  --auth security_token \
-  --query 'data."lifecycle-state"' \
-  --raw-output
-```
-Print the state each poll. If FAILED or DELETED, report the error and stop. If 30 attempts pass without ACTIVE, report timeout and stop.
-
-## 5. Extract the bastion jump endpoint
-
-```
-oci bastion session get \
-  --session-id "<session_id>" \
-  --region "<region>" \
-  --profile pa \
-  --auth security_token \
-  --query 'data."ssh-metadata".command' \
-  --raw-output \
-| grep -oE '[^ ]+@host\.bastion\.[^ ]+'
-```
-This gives something like: `ocid1.bastionsession...@host.bastion.il-jerusalem-1.oci.oraclecloud.com`
-
-## 6. Build the final SSH command
-
-Construct from parts (do NOT use sed/string replacement on OCI's template — it breaks on paths with spaces and double `<privateKey>` occurrences). Use the `ssh_private_key_path` from step 2 (with `~` expanded):
-```
-ssh \
-  -i "<ssh_private_key_path>" \
-  -o "ProxyCommand=ssh -i \"<ssh_private_key_path>\" -W %h:%p -p 22 <bastion_endpoint>" \
-  -o StrictHostKeyChecking=no \
-  -D 1080 \
-  -p 22 \
-  ubuntu@<instance_private_ip>
-```
-
-## 7. Hand off to the user
-
-Print the final command clearly. Then explain:
-- Claude's terminal cannot forward a TTY — the user must run it themselves
-- Suggest: `! <paste the command>` (the `!` prefix runs it in their active terminal)
-- Once connected, SOCKS5 proxy is live on localhost:1080
-- onecli: `ALL_PROXY=socks5://localhost:1080 onecli ...`
-
-If OCI auth has expired (401 error at any step), tell the user to run:
+If this fails with a 401/auth error, tell the user to run:
 ```
 ! oci session authenticate --region il-jerusalem-1 --profile-name pa
 ```
-Then retry from step 3.
+Then retry.
+
+## 2. Detect the operating system
+
+```
+uname -s
+```
+- Starts with MINGW, MSYS, or CYGWIN → Windows
+- Darwin → macOS
+- Otherwise → Linux
+
+## 3. Open a new terminal window running `sshm pa`
+
+**Windows** — use PowerShell to launch a new window:
+```powershell
+Start-Process powershell -ArgumentList '-NoExit', '-Command', 'sshm pa'
+```
+
+**macOS** — use osascript to open a new Terminal tab:
+```bash
+osascript -e 'tell application "Terminal" to do script "sshm pa"'
+```
+
+**Linux** — try common terminal emulators in order:
+```bash
+x-terminal-emulator -e "bash -c 'sshm pa; exec bash'" 2>/dev/null \
+  || gnome-terminal -- bash -c "sshm pa; exec bash" 2>/dev/null \
+  || xterm -e "bash -c 'sshm pa; exec bash'" &
+```
+
+## 4. Confirm and tell the user
+
+After launching, tell the user:
+- A new terminal window is opening with `sshm pa` — it takes ~30s to connect (OCI Bastion session provisioning)
+- Once connected, SOCKS5 proxy is live on `localhost:1080`
+- To use it with onecli: `ALL_PROXY=socks5://localhost:1080 onecli ...`
+- The connection lasts up to 3 hours (session TTL)
