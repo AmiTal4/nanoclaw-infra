@@ -20,8 +20,15 @@ resource "oci_core_instance" "ubuntu_instance" {
 
   create_vnic_details {
     subnet_id        = oci_core_subnet.public_subnet.id
-    assign_public_ip = true
+    assign_public_ip = true  # needed for outbound internet via IGW; no inbound ports are open
     display_name     = "pa-ubuntu-vnic"
+  }
+
+  agent_config {
+    plugins_config {
+      desired_state = "ENABLED"
+      name          = "Bastion"
+    }
   }
 
   source_details {

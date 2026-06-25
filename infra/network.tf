@@ -36,9 +36,11 @@ resource "oci_core_security_list" "ssh_only" {
     stateless   = false
   }
 
+  # Only allow SSH from within the VCN — the Bastion service connects via private IP.
+  # No inbound rules from the internet.
   ingress_security_rules {
-    source    = var.ssh_allowed_cidr
-    protocol  = "6" # TCP
+    source    = var.vcn_cidr
+    protocol  = "6"
     stateless = false
 
     tcp_options {

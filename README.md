@@ -3,59 +3,53 @@
 Terraform configuration that provisions a single Always Free-eligible
 Ubuntu compute instance on Oracle Cloud Infrastructure (OCI) with:
 
-- A dedicated VCN, public subnet, internet gateway, and route table (full internet access)
-- A public IP address attached to the instance
-- A security list that allows **inbound SSH (TCP/22) only** - all other ingress is blocked, egress is unrestricted
-- The latest available Canonical Ubuntu image for the chosen shape (auto-detected via a data source, no hardcoded image OCID)
+- A dedicated VCN, public subnet, internet gateway, and route table
+- A public IP address for outbound internet access (apt updates, etc.) — **no inbound ports are open from the internet**
+- An [OCI Bastion](https://docs.oracle.com/en-us/iaas/Content/Bastion/Concepts/bastionoverview.htm) for secure, zero-open-port SSH access
+- The latest available Canonical Ubuntu image for the chosen shape (auto-detected, no hardcoded image OCID)
 
 ## Prerequisites
 
 1. An OCI account with Always Free resources available in your home region.
 2. [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5.
-3. OCI authentication — either:
-   - **OCI CLI** (easiest): install the [OCI CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm) and run `oci setup config`. It generates the API signing key for you, uploads it, and writes `~/.oci/config` — the Terraform OCI provider picks this up automatically with no extra variables needed.
-   - **Manual API key**: create a key pair yourself, upload the public key under Identity & Security → Users → your user → API Keys, and supply `tenancy_ocid`, `user_ocid`, `fingerprint`, and `private_key_path` in `terraform.tfvars`.
-4. A local SSH key pair (e.g. `ssh-keygen -t ed25519`) - the public key is
-   injected into the instance for the `ubuntu` user.
+3. [OCI CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm) — needed both for Terraform auth and for `scripts/connect.sh`. Run `oci setup config` and use profile name `pa`.
+4. A local SSH key pair (e.g. `ssh-keygen -t ed25519`) — the public key is injected into the instance for the `ubuntu` user.
 
 ## Setup
 
 1. Copy the example variables file and fill in your own values:
 
    ```
-   cp terraform.tfvars.example terraform.tfvars
+   cp infra/terraform.tfvars.example infra/terraform.tfvars
    ```
 
-2. Edit `terraform.tfvars` with your tenancy/user OCIDs, API key fingerprint,
-   compartment OCID, region, and SSH key path. Strongly consider setting
-   `ssh_allowed_cidr` to your own public IP (`a.b.c.d/32`) instead of
-   leaving SSH open to the world.
+2. Edit `infra/terraform.tfvars` with your tenancy/compartment OCIDs and region. See `infra/variables.tf` for all available options.
 
-3. Initialize and apply:
+3. Initialize and apply (all commands use `-chdir=infra`):
 
    ```
-   terraform init
-   terraform plan
-   terraform apply
+   terraform -chdir=infra init
+   terraform -chdir=infra plan
+   terraform -chdir=infra apply
    ```
 
-4. Connect once it's up:
+4. Connect once it's up using the Claude skill:
 
    ```
-   terraform output ssh_command
+   /connect
    ```
+
+   This creates a short-lived OCI Bastion session and opens an SSH connection with a SOCKS5 proxy — see [Connecting & port tunneling](#connecting--port-tunneling) below.
 
 ## After provisioning — install NanoClaw
 
-Once the instance is up, connect to it and install [NanoClaw](https://github.com/nanocoai/nanoclaw):
+Once the instance is up, connect and install [NanoClaw](https://github.com/nanocoai/nanoclaw):
 
-1. **SSH into the instance** using the key you provided:
+1. **Open a session:**
 
    ```
-   terraform output ssh_command
+   /connect
    ```
-
-   Copy and run the printed command (or use your own SSH client with the same key).
 
 2. **Install Git:**
 
@@ -67,18 +61,44 @@ Once the instance is up, connect to it and install [NanoClaw](https://github.com
 
 ---
 
+## Connecting & port tunneling
+
+The instance has **no open inbound ports**. All access goes through the OCI Bastion service, which creates managed-SSH sessions (max 3 hours) tunnelled through OCI's internal network. The `scripts/connect.sh` script handles the full flow automatically.
+
+### SOCKS5 dynamic proxy
+
+While connected, a SOCKS5 proxy is open on `localhost:1080`. This tunnels **all remote ports** — no need to list them individually:
+
+```bash
+# onecli (runs on remote :10254)
+ALL_PROXY=socks5://localhost:1080 onecli ...
+
+# curl
+curl --proxy socks5://localhost:1080 http://localhost:10254/
+
+# browser — configure SOCKS5 proxy to localhost:1080
+```
+
+Override the local port:
+
+```bash
+SOCKS5_PORT=9050 ./scripts/connect.sh
+```
+
+See [`scripts/CLAUDE.md`](scripts/CLAUDE.md) for full documentation and all available overrides.
+
+---
+
 ## Always Free shape notes
 
-- `VM.Standard.E2.1.Micro` (default): AMD, 1 OCPU / 1 GB RAM, fixed shape. Up to 2 instances are Always Free.
-- `VM.Standard.A1.Flex`: Ampere ARM, flexible. Up to 4 OCPUs / 24 GB RAM total across instances are Always Free. Set `instance_shape = "VM.Standard.A1.Flex"` and adjust `instance_ocpus` / `instance_memory_in_gbs`.
-  Capacity for A1.Flex is occasionally constrained in busy regions - if `terraform apply` fails with an "Out of host capacity" error, retry later or switch to `VM.Standard.E2.1.Micro`.
+- `VM.Standard.E2.1.Micro`: AMD, 1 OCPU / 1 GB RAM, fixed shape. Up to 2 instances are Always Free.
+- `VM.Standard.A1.Flex` (default): Ampere ARM, flexible. Up to 4 OCPUs / 24 GB RAM total across instances are Always Free. Adjust `instance_ocpus` / `instance_memory_in_gbs` in `terraform.tfvars`.
+  Capacity is occasionally constrained in busy regions — if `terraform apply` fails with "Out of host capacity", retry later or switch to `VM.Standard.E2.1.Micro`.
 - Boot volume defaults to 50 GB; Always Free covers up to 200 GB across up to 2 boot volumes.
 
 ## Security
 
-The security list only opens TCP/22 (SSH) for `ssh_allowed_cidr`. No other
-ports are reachable from the internet. Outbound traffic is unrestricted so
-the instance can reach the internet for package updates, etc.
+The security list allows **no inbound traffic from the internet**. SSH (TCP/22) is only permitted from within the VCN CIDR, so the OCI Bastion can reach the instance via its private IP while remaining completely unreachable from outside. Outbound traffic is unrestricted.
 
 ## Known Issues
 
@@ -96,12 +116,19 @@ terraform destroy
 
 ## File layout
 
-| File | Purpose |
-|---|---|
-| `versions.tf` | Terraform/provider version constraints and `oci` provider config |
-| `variables.tf` | All input variables |
-| `data.tf` | Availability domain + latest Ubuntu image lookups |
-| `network.tf` | VCN, subnet, internet gateway, route table, security list |
-| `compute.tf` | The compute instance itself |
-| `outputs.tf` | Public IP, instance OCID, ready-to-use SSH command |
-| `terraform.tfvars.example` | Template for your own `terraform.tfvars` (not committed) |
+| Path | Purpose |
+|------|---------|
+| `start.sh` / `start.ps1` | Entry point — installs Claude Code if needed, then launches it |
+| `infra/versions.tf` | Terraform/provider version constraints and `oci` provider config |
+| `infra/variables.tf` | All input variables |
+| `infra/data.tf` | Availability domain + latest Ubuntu image lookups |
+| `infra/network.tf` | VCN, subnet, internet gateway, route table, security list |
+| `infra/compute.tf` | Compute instance with OCA Bastion plugin enabled |
+| `infra/bastion.tf` | OCI Bastion resource |
+| `infra/outputs.tf` | Instance OCID, private IP, bastion OCID, region |
+| `infra/terraform.tfvars.example` | Template for your own `terraform.tfvars` (not committed) |
+| `scripts/proxy-command.sh` | ProxyCommand backend for sshm/ssh via OCI Bastion |
+| `.claude/commands/install.md` | `/install` skill — validate and install all prerequisites |
+| `.claude/commands/deploy.md` | `/deploy` skill — terraform init → plan → apply |
+| `.claude/commands/connect.md` | `/connect` skill — create a Bastion session and SSH in |
+| `.claude/commands/setup-sshm.md` | `/setup-sshm` skill — register instance in `~/.ssh/config` |

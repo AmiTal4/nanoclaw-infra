@@ -1,0 +1,19 @@
+output "instance_id" {
+  description = "OCID of the created instance"
+  value       = oci_core_instance.ubuntu_instance.id
+}
+
+output "instance_private_ip" {
+  description = "Private IP of the instance (reachable via Bastion only)"
+  value       = oci_core_instance.ubuntu_instance.private_ip
+}
+
+output "bastion_id" {
+  description = "OCID of the Bastion — read by scripts/connect.sh"
+  value       = oci_bastion_bastion.bastion.id
+}
+
+output "region" {
+  description = "OCI region — read by scripts/connect.sh"
+  value       = var.region
+}

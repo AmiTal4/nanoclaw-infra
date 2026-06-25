@@ -31,10 +31,10 @@ variable "subnet_cidr" {
   default     = "10.0.1.0/24"
 }
 
-variable "ssh_allowed_cidr" {
-  description = "CIDR allowed to reach the instance over SSH (port 22). Restrict to your own IP, e.g. 203.0.113.10/32, for better security."
-  type        = string
-  default     = "0.0.0.0/0"
+variable "bastion_client_cidrs" {
+  description = "CIDRs allowed to initiate Bastion sessions (controls who can open sessions, not inbound ports on the instance). OCI auth is still required."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }
 
 # --- Compute ---
@@ -73,3 +73,10 @@ variable "ssh_public_key_path" {
   type        = string
   default     = "~/.ssh/id_rsa.pub"
 }
+
+variable "ssh_private_key_path" {
+  description = "Path to your local SSH private key, used in the generated ssh-via-bastion.sh script"
+  type        = string
+  default     = "~/.ssh/id_rsa"
+}
+
