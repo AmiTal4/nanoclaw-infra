@@ -82,17 +82,35 @@ else:
 
 ## 5. Append the new block to ~/.ssh/config
 
-Use the resolved paths from step 3. **Always wrap paths in double quotes** — paths containing spaces (e.g. `C:/Users/Amit Tal/...`) cause OpenSSH to report "extra arguments at end of line" without quotes:
+Use the resolved paths from step 3. **Always wrap paths in double quotes** — paths containing spaces (e.g. `C:/Users/Amit Tal/...`) cause OpenSSH to report "extra arguments at end of line" without quotes.
+
+The ProxyCommand differs by OS:
+
+**Windows (Git Bash):** Use the full Windows path to bash so Windows OpenSSH calls the right interpreter regardless of PATH. Find it with:
+```
+cygpath -m "$(command -v bash)"
+```
+Then write:
 ```
 Host pa
   HostName <instance_private_ip>
   User ubuntu
   IdentityFile "<ssh_private_key_path>"
+  ProxyCommand "<bash_exe_path>" "<proxy_command_path>" %h %p
+  DynamicForward 1080
+  StrictHostKeyChecking accept-new
+```
+
+**Linux/macOS:**
+```
+Host pa
+  HostName <instance_private_ip>
+  User ubuntu
+  IdentityFile <ssh_private_key_path>
   ProxyCommand bash "<proxy_command_path>" %h %p
   DynamicForward 1080
   StrictHostKeyChecking accept-new
 ```
-Always prefix ProxyCommand with `bash "..."` so it works regardless of which SSH client reads the config.
 
 Note: proxy-command.sh runs `terraform` and `oci` CLI — both must be on PATH in the bash environment that OpenSSH invokes. If `sshm pa` silently fails, test with:
 ```

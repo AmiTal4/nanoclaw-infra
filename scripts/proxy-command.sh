@@ -30,10 +30,19 @@ SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-${TF_SSH_PUBLIC_KEY:-$HOME/.ssh/id_rsa.pub}}"
 SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY/#\~/$HOME}"
 SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY/#\~/$HOME}"
 
+# OCI CLI is Python on Windows and cannot resolve POSIX paths (/c/Users/...).
+# Convert to a Windows-style path (C:/Users/...) so Python's open() finds the file.
+if command -v cygpath &>/dev/null; then
+  SSH_PUBLIC_KEY_FOR_OCI=$(cygpath -m "$SSH_PUBLIC_KEY")
+else
+  SSH_PUBLIC_KEY_FOR_OCI="$SSH_PUBLIC_KEY"
+fi
+
 echo "[proxy] Creating port-forwarding session..." >&2
+echo "[proxy] Uploading public key: $SSH_PUBLIC_KEY_FOR_OCI" >&2
 SESSION_ID=$(oci bastion session create-port-forwarding \
   --bastion-id "$BASTION_ID" \
-  --ssh-public-key-file "$SSH_PUBLIC_KEY" \
+  --ssh-public-key-file "$SSH_PUBLIC_KEY_FOR_OCI" \
   --target-private-ip "$INSTANCE_IP" \
   --target-port 22 \
   --session-ttl 10800 \
@@ -56,7 +65,7 @@ while true; do
     --query 'data."lifecycle-state"' \
     --raw-output)
   echo "[proxy]   $STATE" >&2
-  [[ "$STATE" == "ACTIVE" ]] && break
+  [[ "$STATE" == "ACTIVE" ]] && echo "[proxy] Waiting 5s for bastion to finish provisioning..." >&2 && sleep 5 && break
   [[ "$STATE" == "FAILED" || "$STATE" == "DELETED" ]] && echo "[proxy] Session $STATE. Aborting." >&2 && exit 1
   sleep 3
 done
@@ -74,11 +83,15 @@ SSH_CMD=$(oci bastion session get \
 BASTION_ENDPOINT=$(echo "$SSH_CMD" | grep -oE '[^ ]+@host\.bastion\.[^ ]+')
 
 echo "[proxy] Tunnelling through $BASTION_ENDPOINT..." >&2
+echo "[proxy] Using private key: $SSH_PRIVATE_KEY" >&2
+echo "[proxy] Key fingerprint: $(ssh-keygen -l -f "$SSH_PRIVATE_KEY" 2>&1)" >&2
 
 exec ssh \
   -i "$SSH_PRIVATE_KEY" \
+  -o IdentitiesOnly=yes \
   -o StrictHostKeyChecking=no \
   -o UserKnownHostsFile=/dev/null \
+  -v \
   -W "$TARGET_HOST:$TARGET_PORT" \
   -p 22 \
   "$BASTION_ENDPOINT"
