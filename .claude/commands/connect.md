@@ -18,8 +18,11 @@ terraform -chdir=infra output -raw bastion_id
 terraform -chdir=infra output -raw instance_id
 terraform -chdir=infra output -raw instance_private_ip
 terraform -chdir=infra output -raw region
+terraform -chdir=infra output -raw ssh_private_key_path
 ```
 If any command fails, stop and tell the user to run `/deploy` first.
+
+Expand `~` in `ssh_private_key_path` to the actual home directory before using it.
 
 ## 3. Create a managed-SSH session
 
@@ -67,11 +70,11 @@ This gives something like: `ocid1.bastionsession...@host.bastion.il-jerusalem-1.
 
 ## 6. Build the final SSH command
 
-Construct from parts (do NOT use sed/string replacement on OCI's template — it breaks on paths with spaces and double `<privateKey>` occurrences):
+Construct from parts (do NOT use sed/string replacement on OCI's template — it breaks on paths with spaces and double `<privateKey>` occurrences). Use the `ssh_private_key_path` from step 2 (with `~` expanded):
 ```
 ssh \
-  -i "$HOME/.ssh/id_rsa" \
-  -o "ProxyCommand=ssh -i \"$HOME/.ssh/id_rsa\" -W %h:%p -p 22 <bastion_endpoint>" \
+  -i "<ssh_private_key_path>" \
+  -o "ProxyCommand=ssh -i \"<ssh_private_key_path>\" -W %h:%p -p 22 <bastion_endpoint>" \
   -o StrictHostKeyChecking=no \
   -D 1080 \
   -p 22 \

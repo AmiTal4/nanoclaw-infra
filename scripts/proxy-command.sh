@@ -14,14 +14,21 @@ TARGET_PORT="$2"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TF_DIR="${TF_DIR:-$SCRIPT_DIR/../infra}"
 
-SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-$HOME/.ssh/id_rsa}"
-SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-$HOME/.ssh/id_rsa.pub}"
 OCI_PROFILE="${OCI_PROFILE:-pa}"
 
 echo "[proxy] Reading Terraform outputs..." >&2
 BASTION_ID=$(terraform -chdir="$TF_DIR" output -raw bastion_id)
 INSTANCE_IP=$(terraform -chdir="$TF_DIR" output -raw instance_private_ip)
 REGION=$(terraform -chdir="$TF_DIR" output -raw region)
+TF_SSH_PRIVATE_KEY=$(terraform -chdir="$TF_DIR" output -raw ssh_private_key_path 2>/dev/null || true)
+TF_SSH_PUBLIC_KEY=$(terraform -chdir="$TF_DIR" output -raw ssh_public_key_path 2>/dev/null || true)
+
+SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-${TF_SSH_PRIVATE_KEY:-$HOME/.ssh/id_rsa}}"
+SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-${TF_SSH_PUBLIC_KEY:-$HOME/.ssh/id_rsa.pub}}"
+
+# Expand ~ manually since terraform outputs a literal tilde
+SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY/#\~/$HOME}"
+SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY/#\~/$HOME}"
 
 echo "[proxy] Creating port-forwarding session..." >&2
 SESSION_ID=$(oci bastion session create-port-forwarding \

@@ -34,8 +34,9 @@ Stop and wait — do not continue until the user confirms sshm is installed.
 Run from the repo root using `-chdir=infra`:
 ```
 terraform -chdir=infra output -raw instance_private_ip
+terraform -chdir=infra output -raw ssh_private_key_path
 ```
-If this fails, tell the user to run `/deploy` first and stop.
+If either command fails, tell the user to run `/deploy` first and stop.
 
 Also resolve the absolute path to proxy-command.sh from the repo root:
 ```
@@ -52,9 +53,11 @@ uname -s
 
 ## 3. Resolve paths for the SSH config
 
+Expand `~` in the `ssh_private_key_path` output to the actual home directory (Terraform stores a literal tilde).
+
 On **Windows (Git Bash)**, convert POSIX paths to mixed format (C:/...) so Windows OpenSSH can read them:
 ```
-cygpath -m "$HOME/.ssh/id_rsa"
+cygpath -m "<expanded_ssh_private_key_path>"
 cygpath -m "<absolute_path_to_proxy-command.sh>"
 ```
 On **Linux/macOS**, use paths as-is.

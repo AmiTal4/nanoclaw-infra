@@ -17,3 +17,13 @@ output "region" {
   description = "OCI region — read by scripts/connect.sh"
   value       = var.region
 }
+
+output "ssh_private_key_path" {
+  description = "Path to the SSH private key configured in terraform.tfvars"
+  value       = var.ssh_private_key_path
+}
+
+output "ssh_public_key_path" {
+  description = "Path to the SSH public key configured in terraform.tfvars"
+  value       = var.ssh_public_key_path
+}
