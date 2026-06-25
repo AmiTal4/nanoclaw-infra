@@ -15,7 +15,7 @@ This repo provisions and manages an OCI Always Free Ubuntu instance that runs [N
 - Instance private IP: read from `terraform output -raw instance_private_ip`
 - Instance OS user: `ubuntu`
 - SSH keys: `~/.ssh/id_rsa_oci` / `~/.ssh/id_rsa_oci.pub`
-- OCI API key: `~/.oci/oci_api_key.pem` (fingerprint `fd:a1:06:36:1f:de:7b:1d:66:da:99:64:88:d9:3e:8c`)
+- OCI API key: `~/.oci/oci_api_key.pem` (fingerprint in `~/.oci/config`)
 - Terraform state is local (`terraform.tfstate`)
 - OCI CLI flag required on all calls: `--profile pa`
 
@@ -58,5 +58,5 @@ scripts/
 
 - **OCI auth issues**: auth is now permanent API key (`~/.oci/oci_api_key.pem`). If a command fails with 401, verify the key file exists and the fingerprint in `~/.oci/config` matches
 - **"Out of host capacity"**: A1.Flex capacity is occasionally constrained — retry later or switch to `VM.Standard.E2.1.Micro` in `terraform.tfvars`
-- **`sshm pa` silently fails**: `terraform` and `oci` must be on PATH in the bash environment that OpenSSH invokes — test with `bash scripts/proxy-command.sh 10.0.1.237 22`
+- **`sshm pa` silently fails**: `terraform` and `oci` must be on PATH in the bash environment that OpenSSH invokes — test with `bash scripts/proxy-command.sh <instance-private-ip> 22`
 - **`ssh pa-cmd` not found / hangs**: `pa-cmd` requires an active `pa` connection (SOCKS5 proxy on localhost:1080). Run `/connect` first.
