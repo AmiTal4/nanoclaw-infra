@@ -18,23 +18,7 @@ If no argument is provided, ask the user: "Which port do you want to forward? (e
 
 ## 2. Pre-flight checks
 
-Check sshm is installed:
-```
-command -v sshm
-```
-If not found, tell the user to run `/setup-sshm` first and stop.
-
-Check OCI auth is valid:
-```
-oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
-```
-If this fails with a 401/auth error, tell the user to run:
-```
-! oci session authenticate --region il-jerusalem-1 --profile-name pa
-```
-Then retry.
-
-## 3. Detect the OS
+### 2a. Detect the OS
 
 ```
 uname -s
@@ -43,7 +27,7 @@ uname -s
 - Darwin → macOS
 - Otherwise → Linux
 
-## 4. Check for an existing SOCKS5 proxy (fast path)
+### 2b. Check for an existing SOCKS5 proxy (fast path)
 
 The `pa` SSH host config includes `DynamicForward 1080`, so any active `sshm pa` or `ssh pa` session already exposes a SOCKS5 proxy on `localhost:1080` that can reach **all** remote ports — no new tunnel needed.
 
@@ -75,7 +59,25 @@ If the port is **open** → tell the user:
 
 Stop here unless the user confirms they want to proceed with the dedicated forward anyway.
 
-## 5. Open a new terminal window with the port-forward SSH command
+### 2c. Check sshm is installed
+
+```
+command -v sshm
+```
+If not found, tell the user to run `/setup-sshm` first and stop.
+
+### 2d. Check OCI auth is valid
+
+```
+oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
+```
+If this fails with a 401/auth error, tell the user to run:
+```
+! oci session authenticate --region il-jerusalem-1 --profile-name pa
+```
+Then retry.
+
+## 3. Open a new terminal window with the port-forward SSH command
 
 The command to run in the new terminal is:
 ```
@@ -101,7 +103,7 @@ x-terminal-emulator -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N 
   || xterm -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N pa; exec bash'" &
 ```
 
-## 6. Confirm and tell the user
+## 4. Confirm and tell the user
 
 After launching, tell the user:
 - A new terminal window is opening the tunnel — takes ~30s (OCI Bastion provisioning)
