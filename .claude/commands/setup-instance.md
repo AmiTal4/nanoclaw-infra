@@ -1,103 +1,61 @@
 Provision the remote instance after first deploy: installs Git and clones the NanoClaw repo.
 Safe to re-run — checks what's already done before acting.
 
-All SSH commands run non-interactively through a Bastion session so no manual connection is needed.
+All SSH commands run through the `pa-cmd` host alias (routes via existing SOCKS5 proxy on localhost:1080 — instant, no new Bastion session). Requires an active `sshm pa` / `ssh pa` connection.
 
 ---
 
-## 1. Read Terraform outputs
+## 1. Check for an existing SOCKS5 proxy
 
-```
-terraform -chdir=infra output -raw bastion_id
-terraform -chdir=infra output -raw instance_id
-terraform -chdir=infra output -raw instance_private_ip
-terraform -chdir=infra output -raw region
-```
-If any fail, tell the user to run `/deploy` first and stop.
+An active `sshm pa` / `ssh pa` session exposes a SOCKS5 proxy on `localhost:1080`. Check if it is reachable:
 
-## 2. Create a managed-SSH Bastion session
-
-```
-oci bastion session create-managed-ssh \
-  --bastion-id "<bastion_id>" \
-  --ssh-public-key-file "$HOME/.ssh/id_rsa.pub" \
-  --target-resource-id "<instance_id>" \
-  --target-os-username ubuntu \
-  --session-ttl 10800 \
-  --display-name "claude-setup-$(date +%s)" \
-  --region "<region>" \
-  --profile pa \
-  --auth security_token \
-  --query 'data.id' \
-  --raw-output
+**Windows (PowerShell):**
+```powershell
+(Test-NetConnection -ComputerName localhost -Port 1080 -WarningAction SilentlyContinue).TcpTestSucceeded
 ```
 
-## 3. Poll until ACTIVE — max 30 attempts, sleep 5s between each
-
-```
-oci bastion session get \
-  --session-id "<session_id>" \
-  --region "<region>" \
-  --profile pa \
-  --auth security_token \
-  --query 'data."lifecycle-state"' \
-  --raw-output
-```
-Stop with an error if FAILED, DELETED, or 30 attempts elapse.
-
-## 4. Extract the bastion jump endpoint
-
-```
-oci bastion session get \
-  --session-id "<session_id>" \
-  --region "<region>" \
-  --profile pa \
-  --auth security_token \
-  --query 'data."ssh-metadata".command' \
-  --raw-output \
-| grep -oE '[^ ]+@host\.bastion\.[^ ]+'
+**macOS / Linux (Bash):**
+```bash
+nc -z -w1 localhost 1080 2>/dev/null && echo "open" || echo "closed"
 ```
 
-## 5. Define the SSH helper
+### If SOCKS5 is open — proceed
 
-All remote commands below use this form — run them via the Bash tool:
-```
-ssh \
-  -i "$HOME/.ssh/id_rsa" \
-  -o "ProxyCommand=ssh -i \"$HOME/.ssh/id_rsa\" -W %h:%p -p 22 <bastion_endpoint>" \
-  -o StrictHostKeyChecking=no \
-  -o BatchMode=yes \
-  ubuntu@<instance_private_ip> \
-  "<remote command>"
-```
+Tell the user: "Using the existing SOCKS5 proxy on localhost:1080 via `ssh pa-cmd` — no new Bastion session needed."
+Continue to step 2.
 
-## 6. Check and install Git
+### If SOCKS5 is not open — stop
+
+Tell the user:
+> No active connection detected on localhost:1080. Please run `/connect` to open an SSH session to the instance, then re-run `/setup-instance`.
+
+Stop here — do not continue.
+
+## 2. Check and install Git
 
 ```
-# Check
-<ssh> "git --version 2>/dev/null && echo installed || echo missing"
+ssh pa-cmd "git --version 2>/dev/null && echo installed || echo missing"
 ```
 
 If missing:
 ```
-<ssh> "sudo apt-get update -q && sudo apt-get install -y git"
+ssh pa-cmd "sudo apt-get update -q && sudo apt-get install -y git"
 ```
 
-## 7. Check and clone NanoClaw
+## 3. Check and clone NanoClaw
 
 ```
-# Check
-<ssh> "test -d /home/ubuntu/nanoclaw-v2 && echo exists || echo missing"
+ssh pa-cmd "test -d /home/ubuntu/nanoclaw-v2 && echo exists || echo missing"
 ```
 
 If missing:
 ```
-<ssh> "git clone https://github.com/nanocoai/nanoclaw /home/ubuntu/nanoclaw-v2"
+ssh pa-cmd "git clone https://github.com/nanocoai/nanoclaw /home/ubuntu/nanoclaw-v2"
 ```
 
 If it already exists, skip and tell the user.
 
-## 8. Done
+## 4. Done
 
 Print a summary of what was done and suggest next steps:
 ```

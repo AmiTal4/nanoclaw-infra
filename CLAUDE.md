@@ -58,3 +58,4 @@ scripts/
 - **OCI auth expired**: run `oci session authenticate --region il-jerusalem-1 --profile-name pa` then retry
 - **"Out of host capacity"**: A1.Flex capacity is occasionally constrained — retry later or switch to `VM.Standard.E2.1.Micro` in `terraform.tfvars`
 - **`sshm pa` silently fails**: `terraform` and `oci` must be on PATH in the bash environment that OpenSSH invokes — test with `bash scripts/proxy-command.sh 10.0.1.237 22`
+- **`ssh pa-cmd` not found / hangs**: `pa-cmd` requires an active `pa` connection (SOCKS5 proxy on localhost:1080). Run `/connect` first.

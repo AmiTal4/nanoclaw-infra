@@ -24,16 +24,6 @@ command -v sshm
 ```
 If not found, tell the user to run `/setup-sshm` first and stop.
 
-Check OCI auth is valid:
-```
-oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
-```
-If this fails with a 401/auth error, tell the user to run:
-```
-! oci session authenticate --region il-jerusalem-1 --profile-name pa
-```
-Then retry.
-
 ## 3. Detect the OS
 
 ```
@@ -43,14 +33,66 @@ uname -s
 - Darwin → macOS
 - Otherwise → Linux
 
-## 4. Open a new terminal window with the port-forward SSH command
+## 4. Check for an existing SOCKS5 proxy
+
+An active `sshm pa` / `ssh pa` session exposes a SOCKS5 proxy on `localhost:1080`. If it is already running, the port forward can reuse it — instant, no new Bastion session needed.
+
+**Windows (PowerShell):**
+```powershell
+(Test-NetConnection -ComputerName localhost -Port 1080 -WarningAction SilentlyContinue).TcpTestSucceeded
+```
+
+**macOS / Linux (Bash):**
+```bash
+nc -z -w1 localhost 1080 2>/dev/null && echo "open" || echo "closed"
+```
+
+Record whether the proxy is **open** or **closed** — used in step 5.
+
+## 5. Open a new terminal window with the port-forward SSH command
+
+`-N` means no remote command — just hold the tunnel open.
+
+### If SOCKS5 is open — use `pa-cmd` (instant, reuses existing Bastion session)
+
+The command to run in the new terminal is:
+```
+ssh -L <local_port>:localhost:<remote_port> -N pa-cmd
+```
+
+**Windows:**
+```powershell
+Start-Process powershell -ArgumentList '-NoExit', '-Command', 'ssh -L <local_port>:localhost:<remote_port> -N pa-cmd'
+```
+
+**macOS:**
+```bash
+osascript -e 'tell application "Terminal" to do script "ssh -L <local_port>:localhost:<remote_port> -N pa-cmd"'
+```
+
+**Linux:**
+```bash
+x-terminal-emulator -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N pa-cmd; exec bash'" 2>/dev/null \
+  || gnome-terminal -- bash -c "ssh -L <local_port>:localhost:<remote_port> -N pa-cmd; exec bash" 2>/dev/null \
+  || xterm -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N pa-cmd; exec bash'" &
+```
+
+### If SOCKS5 is closed — use `pa` (creates a new Bastion session, ~30s)
+
+First verify OCI auth is valid:
+```
+oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
+```
+If this fails with a 401/auth error, tell the user to run:
+```
+! oci session authenticate --region il-jerusalem-1 --profile-name pa
+```
+Then retry.
 
 The command to run in the new terminal is:
 ```
 ssh -L <local_port>:localhost:<remote_port> -N pa
 ```
-
-`-N` means no remote command — just hold the tunnel open. The `pa` host alias handles bastion session creation via proxy-command.sh automatically.
 
 **Windows:**
 ```powershell
@@ -69,10 +111,11 @@ x-terminal-emulator -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N 
   || xterm -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N pa; exec bash'" &
 ```
 
-## 5. Confirm and tell the user
+## 6. Confirm and tell the user
 
 After launching, tell the user:
-- A new terminal window is opening the tunnel — takes ~30s (OCI Bastion provisioning)
+- If using `pa-cmd`: the tunnel is instant (reused existing Bastion session)
+- If using `pa`: the new terminal is opening the tunnel — takes ~30s (OCI Bastion provisioning)
 - Once connected: `localhost:<local_port>` → instance port `<remote_port>`
 - The terminal window holds the tunnel open — close it to stop forwarding
 - To run multiple port forwards simultaneously, run `/forward` again with a different port
