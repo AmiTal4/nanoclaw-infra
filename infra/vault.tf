@@ -39,12 +39,14 @@ resource "oci_identity_dynamic_group" "pa_instance" {
   matching_rule  = "resource.id = '${oci_core_instance.ubuntu_instance.id}'"
 }
 
-# Policy: allow the instance to read secrets from the vault
+# Policy: allow the instance to read secret bundles from the vault.
+# Uses "secret-bundle" (the secretbundles API endpoint) not "secret-family"
+# (the vault management API) — they are different OCI resource types.
 resource "oci_identity_policy" "pa_vault_policy" {
   compartment_id = var.tenancy_ocid
   name           = "pa-vault-policy"
   description    = "Allow PA instance to read secrets from pa-vault"
   statements = [
-    "Allow dynamic-group pa-instance-group to read secret-family in compartment id ${var.compartment_ocid} where target.vault.id = '${oci_kms_vault.pa_vault.id}'"
+    "Allow dynamic-group pa-instance-group to read secret-bundle in tenancy"
   ]
 }
