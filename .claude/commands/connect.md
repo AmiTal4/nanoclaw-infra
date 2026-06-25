@@ -18,7 +18,7 @@ If not found, tell the user to install it (see `/setup-sshm` step 0 for platform
 
 Check OCI auth is valid:
 ```
-oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
+oci iam region list --profile pa --query 'data[0].name' --raw-output
 ```
 If this fails with a 401/auth error, tell the user to run:
 ```

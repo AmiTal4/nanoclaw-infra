@@ -58,7 +58,7 @@ oci bastion session create-managed-ssh \
   --display-name "claude-setup-$(date +%s)" \
   --region "<region>" \
   --profile pa \
-  --auth security_token \
+  \
   --query 'data.id' \
   --raw-output
 ```
@@ -70,7 +70,7 @@ oci bastion session get \
   --session-id "<session_id>" \
   --region "<region>" \
   --profile pa \
-  --auth security_token \
+  \
   --query 'data."lifecycle-state"' \
   --raw-output
 ```
@@ -83,7 +83,7 @@ oci bastion session get \
   --session-id "<session_id>" \
   --region "<region>" \
   --profile pa \
-  --auth security_token \
+  \
   --query 'data."ssh-metadata".command' \
   --raw-output \
 | grep -oE '[^ ]+@host\.bastion\.[^ ]+'

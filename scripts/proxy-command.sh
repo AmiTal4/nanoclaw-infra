@@ -54,7 +54,6 @@ SESSION_ID=$(oci bastion session create-port-forwarding \
   --display-name "proxy-$(date +%s)" \
   --region "$REGION" \
   --profile "$OCI_PROFILE" \
-  --auth security_token \
   --query 'data.id' \
   --raw-output)
 
@@ -66,7 +65,6 @@ while true; do
     --session-id "$SESSION_ID" \
     --region "$REGION" \
     --profile "$OCI_PROFILE" \
-    --auth security_token \
     --query 'data."lifecycle-state"' \
     --raw-output)
   echo "[proxy]   $STATE" >&2
@@ -79,7 +77,6 @@ SSH_CMD=$(oci bastion session get \
   --session-id "$SESSION_ID" \
   --region "$REGION" \
   --profile "$OCI_PROFILE" \
-  --auth security_token \
   --query 'data."ssh-metadata".command' \
   --raw-output)
 
@@ -88,15 +85,12 @@ SSH_CMD=$(oci bastion session get \
 BASTION_ENDPOINT=$(echo "$SSH_CMD" | grep -oE '[^ ]+@host\.bastion\.[^ ]+')
 
 echo "[proxy] Tunnelling through $BASTION_ENDPOINT..." >&2
-echo "[proxy] Using private key: $SSH_PRIVATE_KEY" >&2
-echo "[proxy] Key fingerprint: $(ssh-keygen -l -f "$SSH_PRIVATE_KEY" 2>&1)" >&2
 
 exec ssh \
   -i "$SSH_PRIVATE_KEY" \
   -o IdentitiesOnly=yes \
   -o StrictHostKeyChecking=no \
   -o UserKnownHostsFile=/dev/null \
-  -v \
   -W "$TARGET_HOST:$TARGET_PORT" \
   -p 22 \
   "$BASTION_ENDPOINT"

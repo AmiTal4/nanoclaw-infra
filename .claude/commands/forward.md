@@ -82,7 +82,7 @@ If not found, tell the user to run `/setup-sshm` first and stop.
 
 If localhost:1080 was **closed**, check:
 ```
-oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
+oci iam region list --profile pa --query 'data[0].name' --raw-output
 ```
 If this fails with a 401/auth error, tell the user to run:
 ```

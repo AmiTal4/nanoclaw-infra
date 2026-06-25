@@ -49,7 +49,7 @@ TOKEN_B64=$(printf '%s' "$TOKEN" | base64 -w0 2>/dev/null || printf '%s' "$TOKEN
 oci vault secret update-base64 \
   --secret-id "$SECRET_OCID" \
   --secret-content-content "$TOKEN_B64" \
-  --profile pa --auth security_token --region il-jerusalem-1
+  --profile pa --region il-jerusalem-1
 ```
 
 Wait for OCI to confirm the update (the command returns JSON with the updated secret metadata).

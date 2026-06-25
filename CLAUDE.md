@@ -11,12 +11,13 @@ This repo provisions and manages an OCI Always Free Ubuntu instance that runs [N
 
 ## Key facts
 
-- OCI CLI profile: `pa` (auth type: `security_token`)
+- OCI CLI profile: `pa` (auth type: `api_key` — permanent, no re-authentication needed)
 - Instance private IP: read from `terraform output -raw instance_private_ip`
 - Instance OS user: `ubuntu`
-- SSH keys: `~/.ssh/id_rsa` / `~/.ssh/id_rsa.pub`
+- SSH keys: `~/.ssh/id_rsa_oci` / `~/.ssh/id_rsa_oci.pub`
+- OCI API key: `~/.oci/oci_api_key.pem` (fingerprint `fd:a1:06:36:1f:de:7b:1d:66:da:99:64:88:d9:3e:8c`)
 - Terraform state is local (`terraform.tfstate`)
-- OCI CLI flags required on all calls: `--profile pa --auth security_token`
+- OCI CLI flag required on all calls: `--profile pa`
 
 ## Available skills
 
@@ -55,7 +56,7 @@ scripts/
 
 ## Common issues
 
-- **OCI auth expired**: run `oci session authenticate --region il-jerusalem-1 --profile-name pa` then retry
+- **OCI auth issues**: auth is now permanent API key (`~/.oci/oci_api_key.pem`). If a command fails with 401, verify the key file exists and the fingerprint in `~/.oci/config` matches
 - **"Out of host capacity"**: A1.Flex capacity is occasionally constrained — retry later or switch to `VM.Standard.E2.1.Micro` in `terraform.tfvars`
 - **`sshm pa` silently fails**: `terraform` and `oci` must be on PATH in the bash environment that OpenSSH invokes — test with `bash scripts/proxy-command.sh 10.0.1.237 22`
 - **`ssh pa-cmd` not found / hangs**: `pa-cmd` requires an active `pa` connection (SOCKS5 proxy on localhost:1080). Run `/connect` first.
