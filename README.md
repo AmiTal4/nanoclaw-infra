@@ -26,14 +26,16 @@ This checks that Claude Code is installed (and installs it via npm if not), then
 | `/deploy` | Provisions the infrastructure: `terraform init → plan → apply` |
 | `/setup-instance` | Installs Git and clones NanoClaw on the remote instance via Bastion |
 | `/setup-sshm` | Registers the instance in `~/.ssh/config` so `sshm pa` / `ssh pa` work |
-| `/connect` | Creates an OCI Bastion session and hands you the SSH command to run |
+| `/connect` | Opens a new terminal window with `sshm pa` running — lets you SSH while staying in Claude |
+| `/forward <port>` | Forwards a local port to the same port on the instance (e.g. `/forward 3000`) |
+| `/forward <local>:<remote>` | Forwards a local port to a different remote port (e.g. `/forward 8080:3000`) |
 
 **Typical first-time flow:**
 ```
 /install → /deploy → /setup-instance → /setup-sshm
 ```
 
-Then connect any time with `/connect` or `sshm pa`.
+Then connect any time with `/connect` or `sshm pa`. To access a specific port on the instance, use `/forward`.
 
 ---
 
@@ -41,7 +43,9 @@ Then connect any time with `/connect` or `sshm pa`.
 
 All SSH access goes through OCI Bastion — no ports are open on the instance. Each session is time-limited (max 3 hours) and created on demand.
 
-While connected, a SOCKS5 proxy is open on `localhost:1080`, tunnelling all remote ports:
+**Connect:** run `/connect` in Claude, or `sshm pa` / `ssh pa` directly. Takes ~30s while the Bastion session provisions.
+
+While connected, a SOCKS5 dynamic proxy is open on `localhost:1080`, tunnelling all remote ports — works on any OS:
 
 ```bash
 # onecli (runs on remote :10254)
@@ -50,8 +54,20 @@ ALL_PROXY=socks5://localhost:1080 onecli ...
 # curl
 curl --proxy socks5://localhost:1080 http://localhost:10254/
 
-# browser — set SOCKS5 proxy to localhost:1080
+# browser — set SOCKS5 proxy to localhost:1080 in network settings
 ```
+
+**Specific port forward:** use `/forward` in Claude, or run directly:
+
+```bash
+# Same port on both sides
+ssh -L 3000:localhost:3000 -N pa
+
+# Different local and remote ports
+ssh -L 8080:localhost:3000 -N pa
+```
+
+The terminal window holding the port-forward SSH command keeps the tunnel open — close it to stop forwarding. Run multiple `/forward` commands simultaneously to tunnel multiple ports.
 
 ---
 
@@ -87,4 +103,4 @@ Ask Claude to run `terraform -chdir=infra destroy`, or run it directly.
 | `infra/` | Terraform configuration (providers, network, compute, bastion) |
 | `infra/terraform.tfvars.example` | Copy to `infra/terraform.tfvars` and fill in your values |
 | `scripts/proxy-command.sh` | SSH ProxyCommand backend used by `sshm pa` / `ssh pa` |
-| `.claude/commands/` | Claude skills — `/install`, `/deploy`, `/connect`, `/setup-sshm` |
+| `.claude/commands/` | Claude skills — `/install`, `/deploy`, `/connect`, `/setup-sshm`, `/forward` |
