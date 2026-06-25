@@ -3,6 +3,32 @@ Run once after terraform apply, or re-run to update an existing entry.
 
 Steps:
 
+## 0. Check sshm is installed
+
+```
+command -v sshm
+```
+
+If not found, detect the OS and offer to install:
+
+**Windows (PowerShell — run via `!` prefix in Claude Code):**
+```powershell
+irm https://raw.githubusercontent.com/Gu1llaum-3/sshm/main/install/windows.ps1 | iex
+```
+
+**macOS:**
+```bash
+brew install Gu1llaum-3/sshm/sshm
+```
+
+**Linux:**
+```bash
+curl -sSL https://raw.githubusercontent.com/Gu1llaum-3/sshm/main/install/unix.sh | bash
+```
+
+Tell the user: "sshm is not installed. You can install it with the command above, or manually from https://github.com/gu1llaum-3/sshm. After installing, re-run `/setup-sshm`."
+Stop and wait — do not continue until the user confirms sshm is installed.
+
 ## 1. Read Terraform outputs
 
 Run from the repo root using `-chdir=infra`:
@@ -53,12 +79,12 @@ else:
 
 ## 5. Append the new block to ~/.ssh/config
 
-Use the resolved paths from step 3:
+Use the resolved paths from step 3. **Always wrap paths in double quotes** — paths containing spaces (e.g. `C:/Users/Amit Tal/...`) cause OpenSSH to report "extra arguments at end of line" without quotes:
 ```
 Host pa
   HostName <instance_private_ip>
   User ubuntu
-  IdentityFile <ssh_private_key_path>
+  IdentityFile "<ssh_private_key_path>"
   ProxyCommand bash "<proxy_command_path>" %h %p
   DynamicForward 1080
   StrictHostKeyChecking accept-new
@@ -67,7 +93,7 @@ Always prefix ProxyCommand with `bash "..."` so it works regardless of which SSH
 
 Note: proxy-command.sh runs `terraform` and `oci` CLI — both must be on PATH in the bash environment that OpenSSH invokes. If `sshm pa` silently fails, test with:
 ```
-bash scripts/proxy-command.sh 10.0.1.237 22
+bash scripts/proxy-command.sh <instance_private_ip> 22
 ```
 
 ## 6. Confirm and print next steps
