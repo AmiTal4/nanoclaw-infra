@@ -8,6 +8,11 @@
 set -euo pipefail
 trap 'echo "[proxy] Error on line $LINENO — aborting." >&2' ERR
 
+# When invoked as a ProxyCommand by Windows OpenSSH from PowerShell, bash runs
+# as a non-login non-interactive shell and inherits a minimal PATH that lacks
+# /usr/bin (dirname, date, cygpath, etc.). Prepend Git Bash tool directories.
+export PATH="/usr/bin:/usr/local/bin:/mingw64/bin:$PATH"
+
 TARGET_HOST="$1"
 TARGET_PORT="$2"
 
