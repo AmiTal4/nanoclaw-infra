@@ -24,12 +24,13 @@ This checks that Claude Code is installed (and installs it via npm if not), then
 |-------|-------------|
 | `/install` | Validates and installs all prerequisites — Terraform, OCI CLI, SSH keys, OCI profile, tfvars |
 | `/deploy` | Provisions the infrastructure: `terraform init → plan → apply` |
+| `/setup-instance` | Installs Git and clones NanoClaw on the remote instance via Bastion |
 | `/setup-sshm` | Registers the instance in `~/.ssh/config` so `sshm pa` / `ssh pa` work |
 | `/connect` | Creates an OCI Bastion session and hands you the SSH command to run |
 
 **Typical first-time flow:**
 ```
-/install → /deploy → /setup-sshm
+/install → /deploy → /setup-instance → /setup-sshm
 ```
 
 Then connect any time with `/connect` or `sshm pa`.

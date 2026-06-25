@@ -26,6 +26,7 @@ Guide the user through these in order for a fresh setup:
 |-------|-------------|
 | `/install` | First time — validates and installs all prerequisites (Terraform, OCI CLI, SSH keys, OCI profile, tfvars) |
 | `/deploy` | After `/install` — runs terraform init → plan → apply |
+| `/setup-instance` | After `/deploy` — installs Git and clones NanoClaw on the remote instance via Bastion |
 | `/setup-sshm` | After `/deploy` — registers the instance in `~/.ssh/config` for `sshm pa` / `ssh pa` |
 | `/connect` | Any time — creates an OCI Bastion session and prints the SSH command to run |
 
@@ -49,6 +50,7 @@ scripts/
   deploy.md                  /deploy skill
   connect.md                 /connect skill
   setup-sshm.md              /setup-sshm skill
+  setup-instance.md          /setup-instance skill
 ```
 
 ## Common issues

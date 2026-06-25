@@ -56,6 +56,7 @@ After a successful apply, print:
 Deployment complete.
 
 Your instance is live. Next steps:
-  /setup-sshm   — register the instance in ~/.ssh/config for sshm/ssh access
-  /connect      — open a Bastion SSH session right now
+  /setup-instance   — install Git and clone NanoClaw on the instance (do this first)
+  /setup-sshm       — register the instance in ~/.ssh/config for sshm/ssh access
+  /connect          — open a Bastion SSH session right now
 ```
