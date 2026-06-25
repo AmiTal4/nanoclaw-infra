@@ -35,7 +35,7 @@ When a user opens Claude Code in this repo for the first time, proactively sugge
 ## Project layout
 
 ```
-start.sh / start.ps1         Entry point — installs Claude Code if needed, then launches it
+run.sh / run.ps1         Entry point — installs Claude Code if needed, then launches it
 CLAUDE.md                    This file — project context for Claude
 README.md                    Human-readable setup guide
 infra/                       Terraform configuration

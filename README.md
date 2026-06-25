@@ -10,12 +10,12 @@ OCI Always Free Ubuntu instance running [NanoClaw](https://github.com/nanocoai/n
 
 **Windows (PowerShell):**
 ```powershell
-.\start.ps1
+.\run.ps1
 ```
 
 **Linux / macOS / Git Bash:**
 ```bash
-./start.sh
+./run.sh
 ```
 
 This checks that Claude Code is installed (and installs it via npm if not), then launches it. From there, Claude escorts you through everything:
@@ -82,7 +82,7 @@ Ask Claude to run `terraform -chdir=infra destroy`, or run it directly.
 
 | Path | Purpose |
 |------|---------|
-| `start.sh` / `start.ps1` | Entry point — installs Claude Code if needed, then launches it |
+| `run.sh` / `run.ps1` | Entry point — installs Claude Code if needed, then launches it |
 | `CLAUDE.md` | Project context loaded by Claude on startup |
 | `infra/` | Terraform configuration (providers, network, compute, bastion) |
 | `infra/terraform.tfvars.example` | Copy to `infra/terraform.tfvars` and fill in your values |
