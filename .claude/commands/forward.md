@@ -1,18 +1,32 @@
 Forward a local port to a port on the PA instance over the OCI Bastion tunnel.
+Runs the tunnel as a background process you can stop on demand.
 
-Usage: /forward <local_port>:<remote_port>  or  /forward <port>  (same port both sides)
+Usage:
+  /forward <port>                     — forward port (same local and remote)
+  /forward <local_port>:<remote_port> — forward with different ports
+  /forward stop <port>                — stop a running forward for that local port
+  /forward stop all                   — stop all running forwards
 
 Examples:
   /forward 3000        → localhost:3000 → instance:3000
   /forward 8080:3000   → localhost:8080 → instance:3000
+  /forward stop 3000   → kill the background SSH for port 3000
+
+PID files are stored in `~/.ssh/forward-<local_port>.pid`.
 
 Steps:
 
-## 1. Parse the port argument
+## 1. Parse the argument
 
-Read the argument passed to this skill. Accept two formats:
+**If the argument starts with `stop`:**
+- Extract the port (or "all") from the argument.
+- If "all": glob `~/.ssh/forward-*.pid`, kill each PID, delete all files.
+- Otherwise: read `~/.ssh/forward-<port>.pid`, kill the PID, delete the file.
+- Tell the user which forward(s) were stopped and exit.
+
+**Otherwise**, parse the port:
 - `<port>` — use the same port for both local and remote
-- `<local_port>:<remote_port>` — different local and remote ports
+- `<local_port>:<remote_port>` — different ports
 
 If no argument is provided, ask the user: "Which port do you want to forward? (e.g. 3000 or 8080:3000)"
 
@@ -27,11 +41,9 @@ uname -s
 - Darwin → macOS
 - Otherwise → Linux
 
-### 2b. Check for an existing SOCKS5 proxy (fast path)
+### 2b. Check for an existing SOCKS5 proxy
 
-The `pa` SSH host config includes `DynamicForward 1080`, so any active `sshm pa` or `ssh pa` session already exposes a SOCKS5 proxy on `localhost:1080` that can reach **all** remote ports — no new tunnel needed.
-
-Check if `localhost:1080` is listening:
+Check if `localhost:1080` is listening — if so, `ssh -L` will connect instantly by reusing the existing Bastion session.
 
 **Windows (PowerShell):**
 ```powershell
@@ -43,31 +55,19 @@ Check if `localhost:1080` is listening:
 nc -z -w1 localhost 1080 2>/dev/null && echo "open" || echo "closed"
 ```
 
-If the port is **open** → tell the user:
+Note the result (open/closed) — it affects the timing message in step 4, but **do not stop here**. Always proceed to start the tunnel.
 
-> A SOCKS5 proxy is already running on `localhost:1080` from an existing `sshm pa` session. You can reach instance port `<remote_port>` through it without opening a new tunnel:
->
-> ```
-> # curl
-> curl --proxy socks5://localhost:1080 http://localhost:<remote_port>/
->
-> # any command that respects ALL_PROXY
-> ALL_PROXY=socks5://localhost:1080 <command>
-> ```
->
-> If you still want a dedicated `-L` forward on `localhost:<local_port>`, it will be instant (reuses the existing Bastion session). Run `/forward <local_port>:<remote_port>` again and type `force` to proceed.
+### 2c. Check sshm is installed (only if SOCKS5 not running)
 
-Stop here unless the user confirms they want to proceed with the dedicated forward anyway.
-
-### 2c. Check sshm is installed
-
+If localhost:1080 was **closed**, check:
 ```
 command -v sshm
 ```
 If not found, tell the user to run `/setup-sshm` first and stop.
 
-### 2d. Check OCI auth is valid
+### 2d. Check OCI auth is valid (only if SOCKS5 not running)
 
+If localhost:1080 was **closed**, check:
 ```
 oci iam region list --profile pa --auth security_token --query 'data[0].name' --raw-output
 ```
@@ -77,36 +77,24 @@ If this fails with a 401/auth error, tell the user to run:
 ```
 Then retry.
 
-## 3. Open a new terminal window with the port-forward SSH command
+## 3. Start the tunnel in the background
 
-The command to run in the new terminal is:
-```
-ssh -L <local_port>:localhost:<remote_port> -N pa
-```
+Run this in Bash (works on Windows via Git Bash, macOS, and Linux):
 
-`-N` means no remote command — just hold the tunnel open. The `pa` host alias handles bastion session creation via proxy-command.sh automatically.
-
-**Windows:**
-```powershell
-Start-Process powershell -ArgumentList '-NoExit', '-Command', 'ssh -L <local_port>:localhost:<remote_port> -N pa'
-```
-
-**macOS:**
 ```bash
-osascript -e 'tell application "Terminal" to do script "ssh -L <local_port>:localhost:<remote_port> -N pa"'
+ssh -L <local_port>:localhost:<remote_port> -N pa &
+SSH_PID=$!
+echo $SSH_PID > ~/.ssh/forward-<local_port>.pid
+echo "PID $SSH_PID"
 ```
 
-**Linux:**
-```bash
-x-terminal-emulator -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N pa; exec bash'" 2>/dev/null \
-  || gnome-terminal -- bash -c "ssh -L <local_port>:localhost:<remote_port> -N pa; exec bash" 2>/dev/null \
-  || xterm -e "bash -c 'ssh -L <local_port>:localhost:<remote_port> -N pa; exec bash'" &
-```
+Store the PID — you'll need it to report to the user and to support `/forward stop`.
 
 ## 4. Confirm and tell the user
 
-After launching, tell the user:
-- A new terminal window is opening the tunnel — takes ~30s (OCI Bastion provisioning)
-- Once connected: `localhost:<local_port>` → instance port `<remote_port>`
-- The terminal window holds the tunnel open — close it to stop forwarding
-- To run multiple port forwards simultaneously, run `/forward` again with a different port
+Tell the user:
+- The tunnel is running in the background (PID `<pid>`)
+- If SOCKS5 was **open**: tunnel is up immediately — `localhost:<local_port>` → instance:`<remote_port>`
+- If SOCKS5 was **closed**: tunnel will be ready in ~30s while OCI Bastion provisions
+- To stop: run `/forward stop <local_port>`
+- PID file: `~/.ssh/forward-<local_port>.pid`
