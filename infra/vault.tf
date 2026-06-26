@@ -42,11 +42,16 @@ locals {
 }
 
 resource "oci_identity_domains_dynamic_resource_group" "pa_instance" {
-  idcs_endpoint  = local.idcs_endpoint
-  display_name   = "pa-instance-group"
-  matching_rule  = "resource.id = '${oci_core_instance.ubuntu_instance.id}'"
-  schemas        = ["urn:ietf:params:scim:schemas:oracle:idcs:DynamicResourceGroup"]
-  description    = "PA compute instance — for Vault secret access"
+  idcs_endpoint = local.idcs_endpoint
+  display_name  = "pa-instance-group"
+  # Match compute instances with instance.id — NOT resource.id. resource.id is
+  # only valid for non-instance resource types; for a compute instance it is
+  # silently never true, so the instance is never a member of the group and
+  # every secret read returns 404 NotAuthorizedOrNotFound even though the rule
+  # "looks" set. instance.id is the only correct variable for matching an instance.
+  matching_rule = "instance.id = '${oci_core_instance.ubuntu_instance.id}'"
+  schemas       = ["urn:ietf:params:scim:schemas:oracle:idcs:DynamicResourceGroup"]
+  description   = "PA compute instance — for Vault secret access"
   # matching_rule is returned: request in the SCIM schema — omitted from GET
   # responses unless explicitly requested. Without this, terraform plan always
   # shows it as unknown even though it was correctly written.
@@ -64,6 +69,10 @@ resource "oci_identity_policy" "pa_vault_policy" {
   name           = "pa-vault-policy"
   description    = "Allow PA instance to read secrets from pa-vault"
   statements = [
-    "Allow dynamic-group pa-instance-group to read secret-bundles in tenancy where target.secret.id = '${oci_vault_secret.bws_browser_token.id}'"
+    # Domain-qualified dynamic-group name ('Default'/'pa-instance-group'). In an
+    # identity-domains tenancy a bare "dynamic-group pa-instance-group" can fail to
+    # resolve to the identity-domain DynamicResourceGroup, so the grant applies to
+    # nobody and reads return 404 NotAuthorizedOrNotFound. Qualify with the domain.
+    "Allow dynamic-group 'Default'/'pa-instance-group' to read secret-bundles in tenancy where target.secret.id = '${oci_vault_secret.bws_browser_token.id}'"
   ]
 }
