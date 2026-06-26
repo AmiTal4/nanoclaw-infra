@@ -31,22 +31,39 @@ resource "oci_vault_secret" "bws_browser_token" {
   }
 }
 
-# Dynamic group: the PA instance can authenticate as itself
-resource "oci_identity_dynamic_group" "pa_instance" {
+# Dynamic group via identity domains API (required for tenancies that use identity domains;
+# the classic oci_identity_dynamic_group resource silently drops matching_rule in such tenancies).
+data "oci_identity_domains" "default" {
   compartment_id = var.tenancy_ocid
-  name           = "pa-instance-group"
-  description    = "PA compute instance — for Vault secret access"
-  matching_rule  = "resource.id = '${oci_core_instance.ubuntu_instance.id}'"
 }
 
-# Policy: allow the instance to read secret bundles from the vault.
-# Uses "secret-bundle" (the secretbundles API endpoint) not "secret-family"
-# (the vault management API) — they are different OCI resource types.
+locals {
+  idcs_endpoint = data.oci_identity_domains.default.domains[0].url
+}
+
+resource "oci_identity_domains_dynamic_resource_group" "pa_instance" {
+  idcs_endpoint  = local.idcs_endpoint
+  display_name   = "pa-instance-group"
+  matching_rule  = "resource.id = '${oci_core_instance.ubuntu_instance.id}'"
+  schemas        = ["urn:ietf:params:scim:schemas:oracle:idcs:DynamicResourceGroup"]
+  description    = "PA compute instance — for Vault secret access"
+  # matching_rule is returned: request in the SCIM schema — omitted from GET
+  # responses unless explicitly requested. Without this, terraform plan always
+  # shows it as unknown even though it was correctly written.
+  attribute_sets = ["all"]
+}
+
+# Policy: allow the instance to read secret contents from the vault.
+# Resource type MUST be "secret-bundles" (plural) — this is the Secrets
+# Retrieval API resource that grants reading/decrypting a secret's contents.
+# "secret-bundle" (singular) is NOT a valid OCI resource type: the policy is
+# accepted but matches nothing, producing 404 NotAuthorizedOrNotFound at fetch.
+# Scoped to the single secret for least privilege.
 resource "oci_identity_policy" "pa_vault_policy" {
   compartment_id = var.tenancy_ocid
   name           = "pa-vault-policy"
   description    = "Allow PA instance to read secrets from pa-vault"
   statements = [
-    "Allow dynamic-group pa-instance-group to read secret-bundle in tenancy"
+    "Allow dynamic-group pa-instance-group to read secret-bundles in tenancy where target.secret.id = '${oci_vault_secret.bws_browser_token.id}'"
   ]
 }
