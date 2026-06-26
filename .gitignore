@@ -21,3 +21,6 @@ terraform.rc
 
 # Claude Code scratch worktrees (ephemeral, created by agent runs)
 .claude/worktrees/
+
+# Instance-only secret OCID file written by /setup-bitwarden (never commit)
+scripts/bws-secret.ocid
