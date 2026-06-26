@@ -1,0 +1,4 @@
+# Shell and Node scripts run on the Linux instance — keep LF line endings so the
+# shebang and line continuations stay valid even when edited on Windows.
+*.sh text eol=lf
+*.cjs text eol=lf
