@@ -22,8 +22,8 @@ jobs:
         with:
           # Uses your Claude Max subscription via an OAuth token (no API-key billing).
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Pin a model if you want to control cost/quality (default is the action's current default).
-          # claude_args: "--model claude-opus-4-8"
+          # Pinned to Sonnet for fast, quota-light reviews. Switch to claude-opus-4-8 for deeper passes.
+          claude_args: "--model claude-sonnet-4-6"
           prompt: |
             You are reviewing a pull request for `nanoclaw-infra` — a public, reusable
             repo that provisions an OCI Always Free instance running NanoClaw. The code
