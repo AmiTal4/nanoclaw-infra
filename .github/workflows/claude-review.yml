@@ -1,0 +1,59 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude PR Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Uses your Claude Max subscription via an OAuth token (no API-key billing).
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Pin a model if you want to control cost/quality (default is the action's current default).
+          # claude_args: "--model claude-opus-4-8"
+          prompt: |
+            You are reviewing a pull request for `nanoclaw-infra` — a public, reusable
+            repo that provisions an OCI Always Free instance running NanoClaw. The code
+            (Bash, PowerShell, Terraform, Claude skills) is meant to be GENERIC: any user
+            on Windows or Linux should be able to clone it and run it. Keep that in mind.
+
+            Review the diff and post focused, actionable inline comments. Skip nitpicks and
+            praise — only flag things that matter. Group findings under these headings, and
+            omit any heading with no findings:
+
+            ## 1. Secrets & PII leaks (HIGHEST PRIORITY)
+            Flag any hardcoded or leaked sensitive data committed to the repo or docs:
+            OCIDs, key fingerprints, private/public IPs, API keys, tokens (e.g. BWS),
+            personal absolute paths (e.g. C:\Users\<name>), emails, or anything that
+            should be a placeholder/variable instead. This repo's standing rule: no
+            private data in *.md or skill files — use placeholders.
+
+            ## 2. Security issues
+            Shell/PowerShell command injection, unquoted variables, unsafe `eval`/`Invoke-Expression`,
+            world-readable secrets, overly broad OCI IAM policies or security-list/NSG rules
+            (e.g. 0.0.0.0/0 ingress), insecure file permissions on keys, and Terraform
+            misconfigurations that weaken the zero-open-ports posture.
+
+            ## 3. Cross-platform portability (Windows & Linux)
+            This is important here. Flag code that silently assumes one OS: hardcoded path
+            separators, `~` expansion that breaks on Windows, bashisms in code expected to
+            run under PowerShell (or vice versa), CRLF/LF assumptions, tools not present on
+            both platforms, and PATH/login-shell assumptions. Suggest the portable form.
+
+            ## 4. General code quality
+            Real bugs, broken error handling, dead code, and clear simplifications. Be brief.
+
+            For each finding give: the file/line, why it matters, and a concrete fix.
