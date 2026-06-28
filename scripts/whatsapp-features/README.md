@@ -73,3 +73,36 @@ systemctl --user is-active 'nanoclaw-v2-*.service'
 
 Then ask an agent to send a poll to a wired WhatsApp destination and vote on it —
 you should see a `📊 Poll update` arrive back to the agent.
+
+## Voice transcription (`whisper/`)
+
+Inbound delivery puts voice notes in `/workspace/inbox/<messageId>/<file>.ogg`, but
+the agent still needs **speech-to-text** to read them. Agents shouldn't install it
+on demand — it's slow and ephemeral (fresh container each spawn), and the model
+can't be fetched at runtime because containers run under **egress lockdown**.
+
+`whisper/build-whisper-image.sh` bakes **whisper.cpp + ffmpeg + a ggml model** into
+**one agent group's** image (FROM the agent base), so that group's spawns have it
+ready, fully offline. whisper.cpp (not Python/torch) keeps it small and fast on
+ARM. Run it on the instance:
+
+```bash
+# Edna's group, base model (≈148MB, fair Hebrew accuracy, ~2s for a short clip)
+GROUP_ID=<edna-agent-group-id> MODEL=base /home/ubuntu/whatsapp-features/whisper/build-whisper-image.sh
+```
+
+`MODEL` can be `base` | `small` | `medium` (bigger = better accuracy, larger image,
+slower on ARM). The script rebuilds the group's image tag in place; the next spawn
+uses it — no host restart.
+
+Then point the agent at it (e.g. in the group's `CLAUDE.local.md`):
+
+```
+ffmpeg -nostdin -loglevel error -i <inbox-file>.ogg -ar 16000 -ac 1 -f wav /tmp/v.wav -y
+whisper-cli -m /opt/whisper/models/ggml-<MODEL>.bin -l he -nt -f /tmp/v.wav
+```
+
+**Caveat:** if the agent later runs `install_packages`, NanoClaw rebuilds the group
+image from the base **without** whisper — re-run the script afterward. (Scope is one
+group; for fleet-wide STT, bake the same layers into the base `container/Dockerfile`
+in the fork instead.)
