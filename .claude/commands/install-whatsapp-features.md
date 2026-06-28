@@ -1,4 +1,4 @@
-Install the NanoClaw WhatsApp interactive features — **Polls**, **Events**, and **poll-vote receiving** — onto the remote instance, then rebuild the host and restart the service.
+Install the NanoClaw WhatsApp interactive features — **Polls**, **Events**, **poll-vote receiving**, and **contact cards** (send/receive vCards) — onto the remote instance, then rebuild the host and restart the service.
 
 These features extend NanoClaw's **native Baileys WhatsApp adapter**, which exists only in the fork (`github.com/AmiTal4/nanoclaw`), not in upstream `nanocoai/nanoclaw`. The installer fetches the feature ref from the fork and merges it into the checkout. See `scripts/whatsapp-features/README.md` for the full design and the buttons-not-supported rationale.
 

@@ -31,7 +31,7 @@ Guide the user through these in order for a fresh setup:
 | `/setup-sshm` | After `/deploy` — registers the instance in `~/.ssh/config` for `sshm pa` / `ssh pa` |
 | `/connect` | Any time — creates an OCI Bastion session and prints the SSH command to run |
 | `/setup-bitwarden` | After NanoClaw is running — moves the hardcoded BWS token into OCI Vault; instance fetches it via Instance Principal and injects it into NanoClaw's config DB |
-| `/install-whatsapp-features` | After NanoClaw is running — adds WhatsApp Polls, Events, and poll-vote receiving to the native Baileys adapter (requires NanoClaw cloned from the fork), then rebuilds + restarts |
+| `/install-whatsapp-features` | After NanoClaw is running — adds WhatsApp Polls, Events, poll-vote receiving, and contact cards to the native Baileys adapter (requires NanoClaw cloned from the fork), then rebuilds + restarts |
 
 When a user opens Claude Code in this repo for the first time, proactively suggest running `/install` to check their setup.
 
