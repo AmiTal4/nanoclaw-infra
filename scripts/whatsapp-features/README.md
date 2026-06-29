@@ -8,7 +8,7 @@ Adds richer-than-text capabilities to NanoClaw's native Baileys WhatsApp adapter
 | **Events** | `send_event({ name, startTime, endTime?, description?, location?, call?, to? })` — renders as a native event card (add-to-calendar). |
 | **Poll-vote receiving** | When people vote, the adapter decrypts and aggregates the votes and forwards a `📊 Poll update` tally to the agent. DM polls wake the agent on each vote; group poll votes are recorded without waking it. |
 | **Contacts** | `send_contact({ name, phone, phones?, org?, email?, to? })` — sends a tappable vCard. Incoming contact cards arrive as a `📇 Contact card` summary plus the raw `.vcf` in `/workspace/inbox/<messageId>/`. |
-| **Approval polls** | Admin-approval cards (self-mod `install_packages`/`add_mcp_server`, OneCLI credentials, a2a/permission gates) and the agent's `ask_user_question` render as a **native single-select poll** instead of a text prompt. The approver **taps** an option — the vote is mapped back to its value and answered through the existing approval pipeline, so no typed `/approve` is needed. These polls are answered silently (never forwarded to the agent as a `📊 Poll update`). Falls back to the text/slash prompt when the option count is outside WhatsApp's 2–12 poll range. |
+| **Approval polls** | Admin-approval cards (self-mod `install_packages`/`add_mcp_server`, OneCLI credentials, a2a/permission gates) and the agent's `ask_user_question` render as a **native single-select poll** instead of a text prompt. The approver **taps** an option — the vote is mapped back to its value and answered through the existing approval pipeline, so no typed `/approve` is needed. Module approvals show three options — **Approve**, **Reject**, **Reject with reason…** (the third holds the reject and captures your next DM as a one-line reason relayed to the agent). These polls are answered silently (never forwarded to the agent as a `📊 Poll update`). Falls back to the text/slash prompt when the option count is outside WhatsApp's 2–12 poll range. |
 
 Buttons are intentionally **not** included: Baileys 7 has no high-level send API
 for interactive buttons, and WhatsApp has effectively deprecated them for
@@ -50,12 +50,25 @@ bash -lc '/home/ubuntu/whatsapp-features/install.sh'
 2. If the feature markers are already in the source, skips fetch/merge.
    Otherwise it fetches `FEATURE_REF` from the fork and merges it.
 3. Runs `pnpm install` + `pnpm build` (the host).
-4. Restarts the user systemd service — stopping it, reaping any process that
+4. **Stamps the upgrade marker** (`scripts/upgrade-state.ts set`) when present —
+   see the note below.
+5. Restarts the user systemd service — stopping it, reaping any process that
    escaped the cgroup via `sg docker` (avoids the `EADDRINUSE :3000`
-   crash-loop), then starting clean.
+   crash-loop), then starting clean, and **fails loudly if the host comes up
+   crash-looping behind the upgrade tripwire** (which `systemctl is-active`
+   alone would hide).
 
 The agent-runner tools (`send_poll`/`send_event`) are mounted **read-only** into
 agent containers, so they take effect on the next agent spawn — no image rebuild.
+
+> **Note — feature ref + the upgrade tripwire.** `FEATURE_REF`
+> (`feat/whatsapp-polls-events`) tracks a fork branch that periodically merges
+> **upstream NanoClaw**, so the merge in step 2 can bump the NanoClaw version.
+> NanoClaw refuses to boot (and crash-loops) when its recorded version marker
+> doesn't match `package.json` unless the upgrade went through a sanctioned
+> path — so step 4 stamps the marker after a clean build. If you ever see
+> `Upgrade tripwire` in the logs, run `pnpm exec tsx scripts/upgrade-state.ts set`
+> in the checkout and restart.
 
 ### Config (env, all optional)
 

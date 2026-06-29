@@ -46,7 +46,9 @@ Run through a **login shell** (`bash -lc`) so `pnpm` is on PATH:
 ssh pa-cmd 'bash -lc "/home/ubuntu/whatsapp-features/install.sh"'
 ```
 
-The script fetches + merges the feature ref from the fork (skips if already present), runs `pnpm install` + `pnpm build`, and restarts the user systemd service (reaping any process that escaped the `sg docker` cgroup to avoid an `EADDRINUSE :3000` crash-loop). Override defaults with env vars if needed — e.g. `FEATURE_REF=...`, `FORK_URL=...` (see the script header).
+The script fetches + merges the feature ref from the fork (skips if already present), runs `pnpm install` + `pnpm build`, **stamps NanoClaw's upgrade marker**, then restarts the user systemd service (reaping any process that escaped the `sg docker` cgroup to avoid an `EADDRINUSE :3000` crash-loop). Override defaults with env vars if needed — e.g. `FEATURE_REF=...`, `FORK_URL=...` (see the script header).
+
+> **Upgrade tripwire.** `FEATURE_REF` tracks a fork branch that periodically merges upstream NanoClaw, so the merge can bump the NanoClaw version. NanoClaw crash-loops at boot if its version marker doesn't match `package.json` — and `systemctl is-active` reports `active` while it loops. The installer stamps the marker after a clean build and then **fails loudly** if it still detects the tripwire in the log. If you hit it manually, run `ssh pa-cmd 'cd /home/ubuntu/nanoclaw-v2 && pnpm exec tsx scripts/upgrade-state.ts set'` and restart.
 
 ## 5. Verify
 
