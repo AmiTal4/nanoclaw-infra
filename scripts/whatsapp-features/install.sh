@@ -87,6 +87,19 @@ pnpm install --prefer-offline
 log "Building host (tsc → dist/)"
 pnpm build
 
+# --- Stamp the upgrade marker -------------------------------------------------
+# The feature ref can carry an upstream version bump (it tracks a fork branch
+# that periodically merges upstream NanoClaw). NanoClaw's startup tripwire
+# hard-stops and crash-loops when data/upgrade-state.json's version disagrees
+# with package.json — and systemd then reports the unit "active" while it loops.
+# The build above just completed the upgrade, so stamp the marker to sanction
+# the next start. Guarded: only when the tripwire mechanism is in this checkout.
+if [ -f scripts/upgrade-state.ts ]; then
+  log "Stamping upgrade marker (version $(node -p "require('./package.json').version" 2>/dev/null || echo '?'))"
+  pnpm exec tsx scripts/upgrade-state.ts set \
+    || log "WARN: could not stamp upgrade marker — watch for the upgrade tripwire on restart."
+fi
+
 # --- Restart the service ------------------------------------------------------
 if [ "${SKIP_RESTART:-0}" = "1" ]; then
   log "SKIP_RESTART=1 — built but not restarting. Restart the service to go live."
@@ -121,6 +134,17 @@ for attempt in 1 2; do
 done
 
 if [ "$started" = "1" ]; then
+  # `is-active` can read "active" even while the host crash-loops behind the
+  # upgrade tripwire (systemd auto-restart hides it). Confirm a clean boot by
+  # scanning the app log for the tripwire / stop banner.
+  LOGFILE="$NANOCLAW_DIR/logs/nanoclaw.log"
+  sleep 3
+  if [ -f "$LOGFILE" ] && tail -40 "$LOGFILE" | grep -qiE "Upgrade tripwire|update did not go through the supported path"; then
+    die "Host is crash-looping on the upgrade tripwire (version-marker mismatch).
+         Fix on the instance:
+           cd $NANOCLAW_DIR && pnpm exec tsx scripts/upgrade-state.ts set
+         then restart the service. Details: docs/upgrade-recovery.md"
+  fi
   log "Done — $UNIT is active. Poll/event sending is live; send_poll/send_event"
   log "appear on the next agent spawn (agent-runner is mounted read-only)."
 else
