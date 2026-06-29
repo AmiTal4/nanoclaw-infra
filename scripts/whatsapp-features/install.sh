@@ -11,6 +11,9 @@
 #   - approval polls        → ask_question/admin-approval cards render as a native
 #                             single-select poll; tapping answers it (no typed
 #                             /approve). Falls back to text outside 2-12 options.
+#   - replies               → inbound WhatsApp replies (quoted messages) reach the
+#                             agent as a <quoted_message from="...">...</quoted_message>
+#                             block (via content.replyTo), so it sees what was referenced.
 #
 # IMPORTANT — these features live in the FORK, not upstream NanoClaw.
 # They extend the native Baileys adapter (src/channels/whatsapp.ts), which only
@@ -55,7 +58,8 @@ already_installed() {
   grep -q "name: 'send_poll'" "$CORE_TOOLS" 2>/dev/null \
     && grep -q "operation === 'poll'" "$WA_ADAPTER" 2>/dev/null \
     && grep -q "getAggregateVotesInPollMessage" "$WA_ADAPTER" 2>/dev/null \
-    && grep -q "questionPolls" "$WA_ADAPTER" 2>/dev/null
+    && grep -q "questionPolls" "$WA_ADAPTER" 2>/dev/null \
+    && grep -q "extractQuotedContext" "$WA_ADAPTER" 2>/dev/null
 }
 
 if already_installed; then
