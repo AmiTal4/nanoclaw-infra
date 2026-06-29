@@ -1,4 +1,4 @@
-Install the NanoClaw WhatsApp interactive features — **Polls**, **Events**, **poll-vote receiving**, and **contact cards** (send/receive vCards) — onto the remote instance, then rebuild the host and restart the service.
+Install the NanoClaw WhatsApp interactive features — **Polls**, **Events**, **poll-vote receiving**, **contact cards** (send/receive vCards), and **approval polls** (admin-approval / `ask_user_question` cards render as a tappable poll instead of a typed `/approve`) — onto the remote instance, then rebuild the host and restart the service.
 
 These features extend NanoClaw's **native Baileys WhatsApp adapter**, which exists only in the fork (`github.com/AmiTal4/nanoclaw`), not in upstream `nanocoai/nanoclaw`. The installer fetches the feature ref from the fork and merges it into the checkout. See `scripts/whatsapp-features/README.md` for the full design and the buttons-not-supported rationale.
 
@@ -54,12 +54,14 @@ The script fetches + merges the feature ref from the fork (skips if already pres
 ssh pa-cmd 'cd /home/ubuntu/nanoclaw-v2 && \
   grep -c "name: '"'"'send_poll'"'"'" container/agent-runner/src/mcp-tools/core.ts && \
   grep -c "getAggregateVotesInPollMessage" src/channels/whatsapp.ts && \
+  grep -c "questionPolls" src/channels/whatsapp.ts && \
   XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user is-active "nanoclaw-v2-*.service"'
 ```
-Expect `1`, a non-zero count, and `active`.
+Expect `1`, a non-zero count, a non-zero count (approval polls wired), and `active`.
 
 ## 6. Tell the user
 
 - Sending is live now; `send_poll` / `send_event` appear on the **next agent spawn** (the agent-runner is mounted read-only into containers — no image rebuild).
+- **Approval polls are live immediately** (host-side): the next admin-approval or `ask_user_question` arrives as a tappable poll — the approver taps **Approve**/**Reject** (or an option) instead of typing `/approve`.
 - To test end-to-end: ask an agent to send a poll to a wired WhatsApp chat, then vote. The agent should receive a `📊 Poll update` tally.
 - **Limitation:** poll-vote decoding uses an in-memory cache, so votes are only tracked for polls sent **after** the most recent host restart.

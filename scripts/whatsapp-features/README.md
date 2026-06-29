@@ -8,10 +8,16 @@ Adds richer-than-text capabilities to NanoClaw's native Baileys WhatsApp adapter
 | **Events** | `send_event({ name, startTime, endTime?, description?, location?, call?, to? })` — renders as a native event card (add-to-calendar). |
 | **Poll-vote receiving** | When people vote, the adapter decrypts and aggregates the votes and forwards a `📊 Poll update` tally to the agent. DM polls wake the agent on each vote; group poll votes are recorded without waking it. |
 | **Contacts** | `send_contact({ name, phone, phones?, org?, email?, to? })` — sends a tappable vCard. Incoming contact cards arrive as a `📇 Contact card` summary plus the raw `.vcf` in `/workspace/inbox/<messageId>/`. |
+| **Approval polls** | Admin-approval cards (self-mod `install_packages`/`add_mcp_server`, OneCLI credentials, a2a/permission gates) and the agent's `ask_user_question` render as a **native single-select poll** instead of a text prompt. The approver **taps** an option — the vote is mapped back to its value and answered through the existing approval pipeline, so no typed `/approve` is needed. These polls are answered silently (never forwarded to the agent as a `📊 Poll update`). Falls back to the text/slash prompt when the option count is outside WhatsApp's 2–12 poll range. |
 
 Buttons are intentionally **not** included: Baileys 7 has no high-level send API
 for interactive buttons, and WhatsApp has effectively deprecated them for
 non-Business-API clients (they frequently don't render).
+
+**Approval polls caveat:** answering an approval rides the same poll-vote
+**decrypt** path as poll-vote receiving. The text/slash prompt is fully replaced
+by the poll (poll-only by design), so if a vote can't be decrypted the card
+can't be answered — re-trigger the approval to get a fresh poll.
 
 The feature ref this installer pulls also carries a fix for **inbound
 attachments** (images, documents, and voice notes): media now lands in the
