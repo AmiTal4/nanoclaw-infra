@@ -83,3 +83,5 @@ After launching, tell the user:
 - Once connected, SOCKS5 proxy is live on `localhost:1080`
 - To use it with onecli: `ALL_PROXY=socks5://localhost:1080 onecli ...`
 - The connection lasts up to 3 hours (session TTL)
+
+**Note for Claude (running remote commands):** once this connection is up, run one-off remote commands with `ssh pa-cmd '<cmd>'` — it tunnels through the SOCKS5 proxy and is **instant**. Do **not** use `ssh pa` for scripted commands: it provisions a fresh OCI Bastion session (~30s) per call. The SOCKS5 proxy drops when the `sshm pa` window closes — if `ssh pa-cmd` fails with `Unable to connect to relay host`, re-run `/connect`.

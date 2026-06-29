@@ -8,6 +8,9 @@
 #   - send_event MCP tool  → native WhatsApp event card (time/place/call link)
 #   - inbound poll votes    → decrypted, aggregated, forwarded to the agent as a
 #                             "Poll update" tally (DM polls wake the agent)
+#   - approval polls        → ask_question/admin-approval cards render as a native
+#                             single-select poll; tapping answers it (no typed
+#                             /approve). Falls back to text outside 2-12 options.
 #
 # IMPORTANT — these features live in the FORK, not upstream NanoClaw.
 # They extend the native Baileys adapter (src/channels/whatsapp.ts), which only
@@ -51,7 +54,8 @@ fi
 already_installed() {
   grep -q "name: 'send_poll'" "$CORE_TOOLS" 2>/dev/null \
     && grep -q "operation === 'poll'" "$WA_ADAPTER" 2>/dev/null \
-    && grep -q "getAggregateVotesInPollMessage" "$WA_ADAPTER" 2>/dev/null
+    && grep -q "getAggregateVotesInPollMessage" "$WA_ADAPTER" 2>/dev/null \
+    && grep -q "questionPolls" "$WA_ADAPTER" 2>/dev/null
 }
 
 if already_installed; then

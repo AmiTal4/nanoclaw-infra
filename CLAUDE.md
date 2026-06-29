@@ -18,6 +18,7 @@ This repo provisions and manages an OCI Always Free Ubuntu instance that runs [N
 - OCI API key: `~/.oci/oci_api_key.pem` (fingerprint in `~/.oci/config`)
 - Terraform state is local (`terraform.tfstate`)
 - OCI CLI flag required on all calls: `--profile pa`
+- **Running remote commands:** once a connection is up (`/connect`), use `ssh pa-cmd '<cmd>'` to run one-off commands on the instance — it tunnels through the SOCKS5 proxy on `localhost:1080` and is **instant**. Do **not** use `ssh pa` for this: `pa` provisions a fresh OCI Bastion session (~30s) on every call. `pa` is for interactive shells (`sshm pa`); `pa-cmd` is for scripted/non-interactive command execution.
 
 ## Available skills
 
