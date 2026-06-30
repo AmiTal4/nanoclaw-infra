@@ -24,3 +24,7 @@ terraform.rc
 
 # Instance-only secret OCID file written by /setup-bitwarden (never commit)
 scripts/bws-secret.ocid
+
+# Python
+__pycache__/
+*.pyc

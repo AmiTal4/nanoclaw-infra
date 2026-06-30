@@ -6,15 +6,28 @@ Reusable diagnostic scripts and issue documentation created during NanoClaw trou
 
 | Path | Purpose |
 |------|---------|
-| `proxy-command.sh` | ProxyCommand backend for sshm/ssh — called by SSH automatically, not directly |
+| `pa-tunnel.py` | **Resilient SOCKS5 tunnel** — holds the proxy on `localhost:1080` over the Bastion and auto-reconnects on drop. Run it (foreground or background) instead of a bare `sshm pa`; then use `ssh pa-cmd` for everything |
+| `proxy-command.sh` | ProxyCommand backend for the `pa` host — called by SSH automatically, not directly |
 | `whatsapp-diagnostics/` | WhatsApp Baileys connection issues — timelock checks, token debugging |
 
 Connection management is handled by Claude skills — see `.claude/commands/` in the repo root:
 
 | Skill | Purpose |
 |-------|---------|
-| `/connect` | Create an OCI Bastion session and open SSH with SOCKS5 proxy |
+| `/connect` | Start the resilient SOCKS5 tunnel (`pa-tunnel.py`) as a background job; then use `ssh pa-cmd` |
 | `/setup-sshm` | Register the instance in `~/.ssh/config` for sshm/ssh (run once) |
+
+---
+
+## pa-tunnel.py — resilient SOCKS5 tunnel
+
+A bare interactive `sshm pa` drops its SOCKS proxy on idle timeout or when the window closes, taking `ssh pa-cmd` / `ALL_PROXY` down with it. `pa-tunnel.py` fixes that with two layers: SSH **keepalives** (`ServerAliveInterval`, also baked into the `~/.ssh/config` blocks by `/setup-sshm`) so idle sessions don't drop, and a **supervise loop** that re-establishes the tunnel (a fresh Bastion session, ~30s) on any disconnect, with capped exponential backoff.
+
+```bash
+python scripts/pa-tunnel.py            # Ctrl-C to stop; SOCKS_PORT / PA_SSH_HOST override
+```
+
+It runs `ssh -N pa` under the hood — i.e. the `pa` host is just the tunnel's **backing Bastion connection**, not something you use directly. Once the proxy is up, **`ssh pa-cmd` does everything** (commands *and* interactive shells), so there's no need for `ssh pa` / `sshm pa`. `/connect` runs this script as a background job; you can also run it yourself in a terminal.
 
 ---
 

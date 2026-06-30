@@ -1,87 +1,71 @@
-Connect to the PA instance by opening a new terminal window running `sshm pa`.
+Bring up a **resilient SOCKS5 tunnel** to the PA instance as a background job, so `ssh pa-cmd` and `ALL_PROXY` work — and keep it alive (auto-reconnecting) for the rest of the session.
 
-Steps:
+The tunnel is `scripts/pa-tunnel.py`: it holds a SOCKS5 proxy on `localhost:1080` over the OCI Bastion (using the `pa` host as its backing Bastion connection) and **auto-reconnects** on any drop, with SSH keepalives to avoid idle drops in the first place. Once it's up, **everything goes through `ssh pa-cmd`** — both one-off commands *and* interactive shells — so there's no need to open a separate `sshm pa` window.
 
 ## 1. Pre-flight checks
 
-Verify Terraform state exists:
+Terraform state exists:
 ```
-test -f infra/terraform.tfstate && echo "ok" || echo "missing"
+test -f infra/terraform.tfstate && echo ok || echo missing
 ```
 If missing, tell the user to run `/deploy` first and stop.
 
-Check sshm is installed:
-```
-command -v sshm
-```
-If not found, tell the user to install it (see `/setup-sshm` step 0 for platform-specific install commands) and stop.
-
-Check OCI auth is valid:
+OCI auth is valid:
 ```
 oci iam region list --profile pa --query 'data[0].name' --raw-output
 ```
-If this fails with a 401/auth error, tell the user to run:
+If this fails with a 401/auth error, tell the user to run `! oci session authenticate --region il-jerusalem-1 --profile-name pa` and retry.
+
+Python is available (the tunnel is a Python script):
 ```
-! oci session authenticate --region il-jerusalem-1 --profile-name pa
+python --version || python3 --version
 ```
-Then retry.
 
 ## 2. Check for an existing connection
 
-Check if the SOCKS5 proxy is already live on `localhost:1080` (present when any `sshm pa` / `ssh pa` session is active):
+Is the SOCKS5 proxy already live on `localhost:1080`?
 
 **Windows (PowerShell):**
 ```powershell
 (Test-NetConnection -ComputerName localhost -Port 1080 -WarningAction SilentlyContinue).TcpTestSucceeded
 ```
-
 **macOS / Linux (Bash):**
 ```bash
-nc -z -w1 localhost 1080 2>/dev/null && echo "open" || echo "closed"
+nc -z -w1 localhost 1080 2>/dev/null && echo open || echo closed
 ```
 
-If **open** → tell the user:
+If **open/True** → it's already connected. Tell the user they can use `ssh pa-cmd '<cmd>'` (or `ALL_PROXY=socks5://localhost:1080 <cmd>`) and stop.
 
-> Already connected — SOCKS5 proxy is live on `localhost:1080`.
-> - `ALL_PROXY=socks5://localhost:1080 <command>` to reach the instance
-> - To open a second interactive shell session anyway, reply `again`.
+## 3. Start the resilient tunnel in the background
 
-Stop here unless the user explicitly asks to open another session.
-
-## 3. Detect the operating system
-
+Run the tunnel as a **background job** (it loops forever — do NOT block on it). From the repo root:
 ```
-uname -s
+python scripts/pa-tunnel.py
 ```
-- Starts with MINGW, MSYS, or CYGWIN → Windows
-- Darwin → macOS
-- Otherwise → Linux
+Run this with `run_in_background: true`. (Use `python3` if `python` isn't on PATH.) The script provisions an OCI Bastion session on first connect (~30s) and then maintains the proxy, reconnecting automatically if it ever drops.
 
-## 4. Open a new terminal window running `sshm pa`
+Then poll for the proxy to come up (up to ~60s):
 
-**Windows** — use PowerShell to launch a new window:
+**Windows:**
 ```powershell
-Start-Process powershell -ArgumentList '-NoExit', '-Command', 'sshm pa'
+for ($i=0; $i -lt 12; $i++) { if ((Test-NetConnection -ComputerName localhost -Port 1080 -WarningAction SilentlyContinue).TcpTestSucceeded) { 'up'; break }; Start-Sleep 5 }
 ```
-
-**macOS** — use osascript to open a new Terminal tab:
+**bash:**
 ```bash
-osascript -e 'tell application "Terminal" to do script "sshm pa"'
+for i in $(seq 1 12); do nc -z -w1 localhost 1080 2>/dev/null && { echo up; break; }; sleep 5; done
 ```
 
-**Linux** — try common terminal emulators in order:
-```bash
-x-terminal-emulator -e "bash -c 'sshm pa; exec bash'" 2>/dev/null \
-  || gnome-terminal -- bash -c "sshm pa; exec bash" 2>/dev/null \
-  || xterm -e "bash -c 'sshm pa; exec bash'" &
+## 4. Verify and tell the user
+
+Confirm the instance is reachable through the tunnel:
+```
+ssh pa-cmd 'echo ok; hostname'
 ```
 
-## 5. Confirm and tell the user
+Then tell the user:
+- The SOCKS5 proxy is live on `localhost:1080` and **auto-reconnects** — it's running as a background job in this session.
+- Run anything on the instance with **`ssh pa-cmd`** — a command (`ssh pa-cmd 'uptime'`) or an interactive shell (`ssh pa-cmd`).
+- Other tools: `ALL_PROXY=socks5://localhost:1080 <command>`.
+- The tunnel stops when this session ends (or when stopped). To run it independently in your own terminal instead: `python scripts/pa-tunnel.py`.
 
-After launching, tell the user:
-- A new terminal window is opening with `sshm pa` — it takes ~30s to connect (OCI Bastion session provisioning)
-- Once connected, SOCKS5 proxy is live on `localhost:1080`
-- To use it with onecli: `ALL_PROXY=socks5://localhost:1080 onecli ...`
-- The connection lasts up to 3 hours (session TTL)
-
-**Note for Claude (running remote commands):** once this connection is up, run one-off remote commands with `ssh pa-cmd '<cmd>'` — it tunnels through the SOCKS5 proxy and is **instant**. Do **not** use `ssh pa` for scripted commands: it provisions a fresh OCI Bastion session (~30s) per call. The SOCKS5 proxy drops when the `sshm pa` window closes — if `ssh pa-cmd` fails with `Unable to connect to relay host`, re-run `/connect`.
+**Note for Claude (running remote commands):** always use `ssh pa-cmd '<cmd>'` — it's instant through the proxy. Do **not** use `ssh pa` directly: it exists only as the tunnel's backing Bastion connection (`pa-tunnel.py` dials it via `ssh -N pa`), and using it directly provisions a fresh ~30s Bastion session per call. If `ssh pa-cmd` fails with `Unable to connect to relay host`, the tunnel dropped — re-run `/connect` (or check the background job).
