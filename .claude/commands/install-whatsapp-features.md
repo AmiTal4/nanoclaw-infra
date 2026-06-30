@@ -1,4 +1,4 @@
-Install the NanoClaw WhatsApp interactive features — **Polls**, **Events**, **poll-vote receiving**, **contact cards** (send/receive vCards), and **approval polls** (admin-approval / `ask_user_question` cards render as a tappable poll instead of a typed `/approve`) — onto the remote instance, then rebuild the host and restart the service.
+Install the NanoClaw WhatsApp interactive features — **Polls**, **Events**, **poll-vote receiving**, **contact cards** (send/receive vCards), **approval polls** (admin-approval / `ask_user_question` cards render as a tappable poll instead of a typed `/approve`), and **replies** (inbound quoted messages reach the agent as a `<quoted_message>` block) — onto the remote instance, then rebuild the host and restart the service.
 
 These features extend NanoClaw's **native Baileys WhatsApp adapter**, which exists only in the fork (`github.com/AmiTal4/nanoclaw`), not in upstream `nanocoai/nanoclaw`. The installer fetches the feature ref from the fork and merges it into the checkout. See `scripts/whatsapp-features/README.md` for the full design and the buttons-not-supported rationale.
 
@@ -57,9 +57,10 @@ ssh pa-cmd 'cd /home/ubuntu/nanoclaw-v2 && \
   grep -c "name: '"'"'send_poll'"'"'" container/agent-runner/src/mcp-tools/core.ts && \
   grep -c "getAggregateVotesInPollMessage" src/channels/whatsapp.ts && \
   grep -c "questionPolls" src/channels/whatsapp.ts && \
+  grep -c "extractQuotedContext" src/channels/whatsapp.ts && \
   XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user is-active "nanoclaw-v2-*.service"'
 ```
-Expect `1`, a non-zero count, a non-zero count (approval polls wired), and `active`.
+Expect `1`, a non-zero count, a non-zero count (approval polls wired), a non-zero count (replies wired), and `active`.
 
 ## 6. Tell the user
 
