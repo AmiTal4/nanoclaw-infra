@@ -98,6 +98,9 @@ Host pa
   IdentityFile "<ssh_private_key_path>"
   ProxyCommand "<bash_exe_path>" "<proxy_command_path>" %h %p
   DynamicForward 1080
+  ServerAliveInterval 20
+  ServerAliveCountMax 3
+  TCPKeepAlive yes
   StrictHostKeyChecking accept-new
 ```
 
@@ -109,6 +112,9 @@ Host pa
   IdentityFile <ssh_private_key_path>
   ProxyCommand bash "<proxy_command_path>" %h %p
   DynamicForward 1080
+  ServerAliveInterval 20
+  ServerAliveCountMax 3
+  TCPKeepAlive yes
   StrictHostKeyChecking accept-new
 ```
 
@@ -144,6 +150,9 @@ Host pa-cmd
   User ubuntu
   IdentityFile "<ssh_private_key_path>"
   ProxyCommand "<connect_exe_path>" -S 127.0.0.1:1080 %h %p
+  ServerAliveInterval 20
+  ServerAliveCountMax 3
+  TCPKeepAlive yes
   StrictHostKeyChecking accept-new
 ```
 
@@ -154,6 +163,9 @@ Host pa-cmd
   User ubuntu
   IdentityFile <ssh_private_key_path>
   ProxyCommand nc -X 5 -x 127.0.0.1:1080 %h %p
+  ServerAliveInterval 20
+  ServerAliveCountMax 3
+  TCPKeepAlive yes
   StrictHostKeyChecking accept-new
 ```
 
