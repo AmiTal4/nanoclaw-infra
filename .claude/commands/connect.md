@@ -36,13 +36,23 @@ nc -z -w1 localhost 1080 2>/dev/null && echo open || echo closed
 
 If **open/True** → it's already connected. Tell the user they can use `ssh pa-cmd '<cmd>'` (or `ALL_PROXY=socks5://localhost:1080 <cmd>`) and stop.
 
-## 3. Start the resilient tunnel in the background
+## 3. Start the resilient tunnel — visibly
 
-Run the tunnel as a **background job** (it loops forever — do NOT block on it). From the repo root:
+The tunnel loops forever — don't block on it, and don't hide it in an untracked background job (that leaves the user with no way to see it's running or check its status).
+
+**Windows:** open it in its own visible PowerShell window, so the user can glance at the `[pa-tunnel]` log directly:
+```powershell
+$p = Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "python scripts/pa-tunnel.py" -WorkingDirectory "<repo-root>" -WindowStyle Normal -PassThru
+$p.Id | Out-File "$env:USERPROFILE\.ssh\pa-tunnel.pid" -Encoding utf8
 ```
-python scripts/pa-tunnel.py
+(Use `python3` in the `-Command` string if `python` isn't on PATH.)
+
+**macOS / Linux:** run it with the Bash tool's `run_in_background: true` from the repo root:
 ```
-Run this with `run_in_background: true`. (Use `python3` if `python` isn't on PATH.) The script provisions an OCI Bastion session on first connect (~30s) and then maintains the proxy, reconnecting automatically if it ever drops.
+python3 scripts/pa-tunnel.py
+```
+
+Either way, the script provisions an OCI Bastion session on first connect (~30s) and then maintains the proxy, reconnecting automatically if it ever drops.
 
 Then poll for the proxy to come up (up to ~60s):
 
@@ -63,9 +73,10 @@ ssh pa-cmd 'echo ok; hostname'
 ```
 
 Then tell the user:
-- The SOCKS5 proxy is live on `localhost:1080` and **auto-reconnects** — it's running as a background job in this session.
+- The SOCKS5 proxy is live on `localhost:1080` and **auto-reconnects**.
+- On Windows, it's running in its own visible PowerShell window (titled `python scripts/pa-tunnel.py`) — check that window any time for live status. Stop it by closing the window or `Stop-Process -Id (Get-Content "$env:USERPROFILE\.ssh\pa-tunnel.pid")`.
+- On macOS/Linux, it's running as a background job in this session.
 - Run anything on the instance with **`ssh pa-cmd`** — a command (`ssh pa-cmd 'uptime'`) or an interactive shell (`ssh pa-cmd`).
 - Other tools: `ALL_PROXY=socks5://localhost:1080 <command>`.
-- The tunnel stops when this session ends (or when stopped). To run it independently in your own terminal instead: `python scripts/pa-tunnel.py`.
 
 **Note for Claude (running remote commands):** always use `ssh pa-cmd '<cmd>'` — it's instant through the proxy. Do **not** use `ssh pa` directly: it exists only as the tunnel's backing Bastion connection (`pa-tunnel.py` dials it via `ssh -N pa`), and using it directly provisions a fresh ~30s Bastion session per call. If `ssh pa-cmd` fails with `Unable to connect to relay host`, the tunnel dropped — re-run `/connect` (or check the background job).
