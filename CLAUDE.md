@@ -66,6 +66,7 @@ scripts/
 
 - **OCI auth issues**: auth is now permanent API key (`~/.oci/oci_api_key.pem`). If a command fails with 401, verify the key file exists and the fingerprint in `~/.oci/config` matches
 - **"Out of host capacity"**: A1.Flex capacity is occasionally constrained — retry later or switch to `VM.Standard.E2.1.Micro` in `terraform.tfvars`
+- **Always Free A1.Flex limit is now 2 OCPU / 12 GB total** (Oracle halved it from 4 OCPU/24GB on 2026-06-15, undocumented). `instance_ocpus`/`instance_memory_in_gbs` in `terraform.tfvars` must not exceed this on a pure free-tier tenancy or the instance gets shut down.
 - **`sshm pa` silently fails**: `terraform` and `oci` must be on PATH in the bash environment that OpenSSH invokes — test with `bash scripts/proxy-command.sh <instance-private-ip> 22`
 - **`ssh pa-cmd` not found / hangs**: `pa-cmd` requires an active `pa` connection (SOCKS5 proxy on localhost:1080). Run `/connect` first.
 - **Vault secret read returns `404 NotAuthorizedOrNotFound` via Instance Principal**: check `infra/vault.tf` — the dynamic group matching rule must use `instance.id` (not `resource.id`, which is silently never true for a compute instance), and the policy must reference the group **domain-qualified** as `dynamic-group 'Default'/'pa-instance-group'` (a bare name does not resolve in an identity-domains tenancy). Matching-rule changes take **~1 hour** to propagate server-side; a reboot does not help.
