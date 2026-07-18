@@ -73,7 +73,7 @@ The terminal window holding the port-forward SSH command keeps the tunnel open â
 
 ## Always Free shape notes
 
-- `VM.Standard.A1.Flex` (default): Ampere ARM, up to 4 OCPUs / 24 GB RAM total. Adjust in `infra/terraform.tfvars`.
+- `VM.Standard.A1.Flex` (default): Ampere ARM, up to 2 OCPUs / 12 GB RAM total (Oracle halved this from 4 OCPU/24GB on 2026-06-15). Adjust in `infra/terraform.tfvars`.
   Capacity is occasionally constrained â€” if apply fails with "Out of host capacity", retry later or switch to `VM.Standard.E2.1.Micro`.
 - `VM.Standard.E2.1.Micro`: AMD, 1 OCPU / 1 GB RAM. Up to 2 instances Always Free.
 - Boot volume defaults to 50 GB; Always Free covers up to 200 GB across up to 2 boot volumes.
