@@ -90,6 +90,14 @@ Outgoing WhatsApp DMs can appear delivered in logs but never reach the recipient
 
 **Fix**: upgrade `@whiskeysockets/baileys` to rc13+. See [`scripts/whatsapp-diagnostics/README.md`](scripts/whatsapp-diagnostics/README.md) for a full breakdown and diagnostic scripts.
 
+## Migrating off OCI (to a homelab)
+
+To move the whole NanoClaw install — agents, tasks, memory, credentials, channel
+sessions — to a self-hosted box with zero reconfiguration, follow
+[`docs/homelab-migration-runbook.md`](docs/homelab-migration-runbook.md). It covers the
+full state inventory, the Tailscale transfer path, cutover order, verification, rollback,
+and when to finally `terraform destroy` the OCI instance.
+
 ## Cleanup
 
 Ask Claude to run `terraform -chdir=infra destroy`, or run it directly.
@@ -103,4 +111,5 @@ Ask Claude to run `terraform -chdir=infra destroy`, or run it directly.
 | `infra/` | Terraform configuration (providers, network, compute, bastion) |
 | `infra/terraform.tfvars.example` | Copy to `infra/terraform.tfvars` and fill in your values |
 | `scripts/proxy-command.sh` | SSH ProxyCommand backend used by `sshm pa` / `ssh pa` |
+| `docs/homelab-migration-runbook.md` | Runbook for migrating the NanoClaw install from OCI to a homelab |
 | `.claude/commands/` | Claude skills — `/install`, `/deploy`, `/connect`, `/setup-sshm`, `/forward` |
