@@ -68,7 +68,7 @@ while true; do
     --query 'data."lifecycle-state"' \
     --raw-output)
   echo "[proxy]   $STATE" >&2
-  [[ "$STATE" == "ACTIVE" ]] && echo "[proxy] Waiting 5s for bastion to finish provisioning..." >&2 && sleep 5 && break
+  [[ "$STATE" == "ACTIVE" ]] && echo "[proxy] Waiting 20s for bastion to finish provisioning..." >&2 && sleep 20 && break
   [[ "$STATE" == "FAILED" || "$STATE" == "DELETED" ]] && echo "[proxy] Session $STATE. Aborting." >&2 && exit 1
   sleep 3
 done
