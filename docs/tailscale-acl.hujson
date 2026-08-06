@@ -1,0 +1,57 @@
+// Tailscale ACL for the PA tailnet.
+//
+// Paste into: https://login.tailscale.com/admin/acls/file
+// Replace HOMELAB_TAILSCALE_IP below with your homelab node's 100.x address
+// (`tailscale ip -4` on the homelab box) before saving.
+//
+// Design intent: the OCI cloud box is the most exposed node on the tailnet, so
+// it is tagged and default-denied. It may reach ONLY the homelab ports listed
+// under the tag:cloud rule. Everything else is denied, including using the
+// homelab as an exit node (that would require granting autogroup:internet,
+// which is deliberately absent).
+{
+  "hosts": {
+    "homelab": "HOMELAB_TAILSCALE_IP",
+  },
+
+  "tagOwners": {
+    // Only admins may apply tag:cloud. A tagged node is owned by the tag, not
+    // by the user who authenticated it, so it survives user key expiry.
+    "tag:cloud": ["autogroup:admin"],
+  },
+
+  "acls": [
+    // --- Your own devices -> cloud box -------------------------------------
+    // Laptop, phone, homelab can manage and scrape the OCI instance.
+    //   22   SSH (management path that bypasses the OCI Bastion)
+    //   9100 node_exporter, if/when you add it
+    {
+      "action": "accept",
+      "src":    ["autogroup:member"],
+      "dst":    ["tag:cloud:22,9100"],
+    },
+
+    // --- Cloud box -> homelab ----------------------------------------------
+    // Deliberately narrow. Add ports here as NanoClaw automations need them;
+    // do NOT widen to "homelab:*".
+    //   53   AdGuard DNS (only used if you later flip --accept-dns=true)
+    //   8123 Home Assistant
+    //   9090 Prometheus
+    {
+      "action": "accept",
+      "src":    ["tag:cloud"],
+      "dst":    ["homelab:53,8123,9090"],
+    },
+  ],
+
+  // Optional: Tailscale SSH into the cloud box without managing authorized_keys.
+  // Leave commented out unless you want it -- it is a second auth path.
+  // "ssh": [
+  //   {
+  //     "action": "accept",
+  //     "src":    ["autogroup:member"],
+  //     "dst":    ["tag:cloud"],
+  //     "users":  ["ubuntu"],
+  //   },
+  // ],
+}
