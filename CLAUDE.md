@@ -7,6 +7,7 @@ This repo provisions and manages an OCI Always Free Ubuntu instance that runs [N
 - OCI compute instance (ARM A1.Flex, Ubuntu) in `il-jerusalem-1`
 - VCN with internet access outbound-only — no inbound ports open from the internet
 - OCI Bastion for secure SSH access (zero open ports)
+- Tailscale node `pa-oci` (tag `tag:cloud`) joining the instance to the homelab tailnet — see [`docs/tailscale.md`](docs/tailscale.md). Outbound-only, so the VCN stays egress-only.
 - All access via Claude skills below
 
 ## Key facts
@@ -70,4 +71,5 @@ scripts/
 - **`sshm pa` silently fails**: `terraform` and `oci` must be on PATH in the bash environment that OpenSSH invokes — test with `bash scripts/proxy-command.sh <instance-private-ip> 22`
 - **`ssh pa-cmd` not found / hangs**: `pa-cmd` requires an active `pa` connection (SOCKS5 proxy on localhost:1080). Run `/connect` first.
 - **Vault secret read returns `404 NotAuthorizedOrNotFound` via Instance Principal**: check `infra/vault.tf` — the dynamic group matching rule must use `instance.id` (not `resource.id`, which is silently never true for a compute instance), and the policy must reference the group **domain-qualified** as `dynamic-group 'Default'/'pa-instance-group'` (a bare name does not resolve in an identity-domains tenancy). Matching-rule changes take **~1 hour** to propagate server-side; a reboot does not help.
+- **Homelab service unreachable from a NanoClaw container**: address it by tailnet `100.x` IP, not MagicDNS name. The instance runs `--accept-dns=false`, and Docker strips the host's loopback resolver (`127.0.0.53`) and falls back to `8.8.8.8` regardless. See `docs/tailscale.md`.
 - **BWS token edits to `container.json` get reverted**: NanoClaw v2 regenerates `groups/<group>/container.json` from its DB (`data/v2.db`) at every spawn. Write the token into the DB via `/setup-bitwarden` (which runs `scripts/fetch-bws-token.sh` → `inject-bws-token.cjs`), not the file.
