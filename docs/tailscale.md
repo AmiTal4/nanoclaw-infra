@@ -62,14 +62,19 @@ headless box off the tailnet.
 
 NanoClaw agents run in containers. Two things to know:
 
-- **Container → tailnet IPs works.** The container's gateway is `docker0` on the
-  host, the host holds the `100.64.0.0/10` route via `tailscale0`, and
-  `net.ipv4.ip_forward` is already `1`. No extra config.
-- **MagicDNS names do not resolve in containers.** The host's `/etc/resolv.conf`
-  is the systemd-resolved stub (`127.0.0.53`); Docker strips loopback
-  nameservers and falls back to `8.8.8.8`. Since we run `--accept-dns=false`
-  this is moot — **address homelab services by their `100.x` IP**, not by
-  MagicDNS name.
+- **Container → tailnet IPs works.** Verified: a container on a user-defined
+  bridge network reached a homelab service over its `100.x` address, and was
+  correctly blocked on a port the ACL denies. The host holds the
+  `100.64.0.0/10` route via `tailscale0` and `net.ipv4.ip_forward` is already
+  `1`. No extra config — and note the ACL applies to container traffic too,
+  since it egresses via the host's Tailscale node.
+- **MagicDNS names do not resolve in containers.** Containers on a user-defined
+  network get Docker's embedded resolver (`127.0.0.11`), which forwards to the
+  host's upstream — and the host's `/etc/resolv.conf` is the systemd-resolved
+  stub (`127.0.0.53`), which Docker discards in favour of a public resolver.
+  Either way the tailnet resolver is never consulted. Since we run
+  `--accept-dns=false` this is moot — **address homelab services by their
+  `100.x` IP**, not by MagicDNS name.
 
 If you later decide you want MagicDNS/AdGuard inside containers, you need both:
 `tailscale set --accept-dns=true`, *and* `--dns=<adguard-tailnet-ip>` on the
@@ -81,8 +86,25 @@ containers — plus an AdGuard upstream rule forwarding `ts.net` to
 ```bash
 tailscale status
 tailscale ip -4
-ping -c1 <homelab-tailscale-ip>
+
+# Confirm the node is tagged, online, and has no key expiry
+tailscale status --json | python3 -c \
+  'import sys,json; s=json.load(sys.stdin)["Self"]; print(s["HostName"], s.get("Tags"), s.get("KeyExpiry"))'
 ```
+
+Confirm the ACL is actually restricting — an allowed port should connect and a
+denied one should not:
+
+```bash
+for p in 53 8123 22; do
+  timeout 5 bash -c "echo > /dev/tcp/<homelab-tailscale-ip>/$p" 2>/dev/null \
+    && echo "$p open" || echo "$p blocked"
+done
+```
+
+`22` blocking while `8123` connects is the signal the ACL took effect. A port
+that is allowed by the ACL but has nothing listening also shows as blocked, so
+don't read a single closed port as an ACL failure.
 
 From a homelab or laptop on the tailnet:
 
